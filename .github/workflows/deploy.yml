@@ -1,0 +1,44 @@
+name: Deploy
+
+on:
+  push:
+    branches: [ main ]
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    needs: [build]
+    
+    steps:
+    - uses: actions/checkout@v3
+    
+    - name: Deploy Backend to Production
+      run: echo "Deploying backend to production environment"
+      # Add actual deployment steps here
+      
+    - name: Deploy Frontend to Vercel
+      run: echo "Deploying frontend to Vercel"
+      # Add actual Vercel deployment steps here
+
+  build:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v3
+    
+    - name: Setup Node.js
+      uses: actions/setup-node@v3
+      with:
+        node-version: '18.x'
+        
+    - name: Build Frontend
+      run: |
+        cd frontend
+        npm ci
+        npm run build
+        
+    - name: Build Backend
+      run: |
+        cd backend
+        npm ci
+        npm run build
