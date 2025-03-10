@@ -14,7 +14,7 @@ Landing Pad Digital is a modern website builder that leverages AI to make websit
 - **User Authentication**: Secure account management
 - **Hosting & Deployment**: Automatic cloud deployment
 - **Subscription Tiers**: Free, Pro, and Enterprise options
-- **Image Integration**: Access to high-quality stock photos
+- **Image Management**: Upload, optimize, and browse high-quality images from multiple sources
 
 ## Tech Stack
 
@@ -24,6 +24,7 @@ Landing Pad Digital is a modern website builder that leverages AI to make websit
 - **AI Integration**: OpenAI GPT API
 - **Payment Processing**: Stripe
 - **Hosting**: Vercel
+- **Image Services**: Unsplash API integration
 
 ## Development Setup
 
@@ -71,10 +72,55 @@ Landing Pad Digital is a modern website builder that leverages AI to make websit
 
 ```
 ├── frontend/               # Next.js frontend application
+│   ├── app/                # Next.js app directory
+│   ├── components/         # Reusable UI components
+│   │   ├── editor/         # Website editor components
+│   │   ├── layout/         # Layout components
+│   │   └── ui/             # Shared UI components
+│   ├── lib/                # Utilities and helpers
+│   │   ├── services/       # API services
+│   │   ├── store/          # State management
+│   │   └── utils/          # Utility functions
 ├── backend/                # Express backend API
 ├── .github/                # GitHub Actions workflows
 ├── docs/                   # Documentation
 └── README.md               # Project readme
+```
+
+## Image Management
+
+The platform includes a comprehensive image management system with the following features:
+
+### Components
+
+- **ImageSelector**: Main component for selecting and managing images from various sources
+- **ImageUploader**: Component for uploading and optimizing images
+- **UnsplashBrowser**: Browse and search images from Unsplash
+- **ImageGallery**: Browse and manage uploaded images
+- **ResponsiveImage**: Optimized image component with lazy loading and placeholders
+
+### APIs
+
+- `/api/images/upload`: Endpoint for image uploads
+- `/api/unsplash/[...route]`: Proxy for Unsplash API
+
+### Usage
+
+```jsx
+import { ImageSelector } from '@/components/editor';
+
+function MyComponent() {
+  const [imageUrl, setImageUrl] = useState('');
+  
+  return (
+    <ImageSelector
+      value={imageUrl}
+      onChange={setImageUrl}
+      label="Header Image"
+      description="Choose a header image for your landing page"
+    />
+  );
+}
 ```
 
 ## API Documentation
