@@ -10,6 +10,8 @@ The image management system allows users to upload, browse, select, and optimize
 - Automatically optimize images for web use
 - Responsive image loading with placeholders
 - Image metadata management
+- Fully accessible UI with keyboard navigation and screen reader support
+- Mobile-friendly touch targets and responsive design
 
 ## Components
 
@@ -29,6 +31,7 @@ function MyComponent() {
       onChange={setImageUrl}
       label="Feature Image"
       description="Choose an image for this section"
+      required={true}
     />
   );
 }
@@ -46,6 +49,7 @@ function MyComponent() {
 | placeholder | string | Placeholder text when no image is selected |
 | previewClassName | string | CSS classes for the image preview |
 | buttonText | string | Text for the selection button |
+| required | boolean | Whether the field is required |
 
 ### ImageUploader
 
@@ -138,6 +142,7 @@ function ImageComponent() {
       aspectRatio="16/9"
       objectFit="cover"
       fadeIn={true}
+      fallbackSrc="/images/placeholder.svg"
     />
   );
 }
@@ -157,6 +162,7 @@ function ImageComponent() {
 | loadingStrategy | string | 'lazy' or 'eager' |
 | placeholderSize | number | Size of the placeholder in pixels |
 | fadeIn | boolean | Whether to fade in the image |
+| fallbackSrc | string | Fallback image URL if loading fails |
 
 ## API Endpoints
 
@@ -253,6 +259,47 @@ UNSPLASH_ACCESS_KEY=your_unsplash_access_key
 UNSPLASH_SECRET_KEY=your_unsplash_secret_key
 ```
 
+## Accessibility Features
+
+The image management components are built with accessibility in mind:
+
+### Keyboard Navigation
+
+- All components are fully navigable using the keyboard
+- Tab navigation for interactive elements
+- Enter/Space keys to activate buttons and select images
+- Escape key to close dialogs and cancel operations
+- Arrow keys for navigation within components (where applicable)
+- Focus trapping within dialogs to prevent focus from leaving the dialog
+
+### Screen Reader Support
+
+- Proper ARIA roles, states, and properties for all components
+- Live regions for dynamic content updates (e.g., loading states, errors)
+- Descriptive labels for all interactive elements
+- Status announcements for operations like uploads and selections
+- Proper heading structure for content organization
+
+### Semantic HTML
+
+- Proper HTML elements used for their intended purposes
+- Form controls with associated labels
+- Images with appropriate alt text
+- Dialogs with proper heading structure
+
+### Visual Indicators
+
+- Clear focus states for keyboard navigation
+- Loading states with visual indicators
+- Error states with proper error messages
+- Visual feedback for selected items
+
+### Touch Support
+
+- Minimum touch target size of 44×44 pixels for mobile devices
+- Responsive design that works across all screen sizes
+- Proper spacing between interactive elements to prevent accidental taps
+
 ## Best Practices
 
 ### Image Optimization
@@ -282,6 +329,7 @@ To create responsive images for different screen sizes:
 - Use appropriate contrast ratios for images with text
 - Avoid using images of text when possible
 - Test with screen readers to ensure images are properly described
+- Ensure keyboard navigation works as expected
 
 ### Unsplash Attribution
 
@@ -293,35 +341,63 @@ When using Unsplash images, make sure to provide proper attribution as required 
 </div>
 ```
 
-## Common Issues and Solutions
+## Testing Accessibility
 
-### Images Not Uploading
+To ensure the components remain accessible, consider the following testing approaches:
 
-- Check file size limits in both frontend and server configurations
-- Verify that the upload directory exists and has proper permissions
-- Check for CORS issues if uploading from a different domain
+### Automated Testing
 
-### Slow Image Loading
+- Use tools like Axe, Lighthouse, or WAVE to scan for accessibility issues
+- Integrate accessibility testing into your CI/CD pipeline
+- Use React Testing Library to test keyboard navigation and focus management
 
-- Implement proper image optimization
-- Use a CDN for serving images in production
-- Use appropriate lazy loading strategies
-- Implement progressive image loading with placeholders
+### Manual Testing
 
-### Memory Issues with Large Images
+- Test keyboard navigation through all components
+- Use screen readers like NVDA, JAWS, or VoiceOver to test screen reader support
+- Test with high contrast mode enabled to ensure proper contrast ratios
+- Test with different zoom levels to ensure text remains readable
+- Test with mobile devices to ensure touch targets are large enough
 
-- Implement server-side resizing for very large images
-- Use streaming upload for large files
-- Set appropriate maximum file size limits
+### Example Automated Test
 
-## Future Enhancements
+```javascript
+import { render, screen, fireEvent } from '@testing-library/react';
+import { axe } from 'jest-axe';
+import { ImageSelector } from '@/components/editor';
 
-Future plans for the image management system include:
+test('ImageSelector has no accessibility violations', async () => {
+  const { container } = render(
+    <ImageSelector 
+      value="" 
+      onChange={() => {}} 
+      label="Test Image" 
+      required={true}
+    />
+  );
+  
+  const results = await axe(container);
+  expect(results).toHaveNoViolations();
+});
 
-1. Integration with additional image providers (e.g., Pexels, Pixabay)
-2. AI-powered image tagging and categorization
-3. Automatic background removal
-4. Advanced image editing capabilities (crop, resize, filters)
-5. Image compression optimization with WebP and AVIF support
-6. Image analytics to track usage across projects
-7. CDN integration for improved performance
+test('ImageSelector can be operated with keyboard', () => {
+  render(
+    <ImageSelector 
+      value="" 
+      onChange={() => {}} 
+      label="Test Image" 
+    />
+  );
+  
+  // Find the button and focus it
+  const button = screen.getByRole('button', { name: /select image/i });
+  button.focus();
+  
+  // Press Enter to open dialog
+  fireEvent.keyDown(button, { key: 'Enter' });
+  
+  // Dialog should be open and first tab should be focused
+  const tab = screen.getByRole('tab', { name: /upload/i });
+  expect(tab).toHaveFocus();
+});
+```
