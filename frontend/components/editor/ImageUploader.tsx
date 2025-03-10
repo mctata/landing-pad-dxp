@@ -83,7 +83,7 @@ export default function ImageUploader({
       // Upload to server
       const image = await uploadImage(optimizedFile, {
         name: file.name,
-        alt: file.name,
+        alt: file.name, // Default alt text
       });
       
       // Complete progress
@@ -132,6 +132,7 @@ export default function ImageUploader({
       'image/svg+xml': [],
     },
     maxFiles: 1,
+    noKeyboard: false, // Enable keyboard navigation
   });
   
   // Handle click on upload button
@@ -151,22 +152,31 @@ export default function ImageUploader({
   
   return (
     <div className={cn('w-full', className)}>
+      {/* Screen reader announcements */}
+      <div aria-live="polite" className="sr-only">
+        {isUploading && `Upload in progress: ${uploadProgress}%`}
+        {error && `Error: ${error}`}
+      </div>
+      
       {!isUploading && !preview ? (
         <div
           {...getRootProps()}
           className={cn(
-            'border-2 border-dashed rounded-lg p-6 text-center cursor-pointer transition-colors',
+            'image-uploader-dropzone',
             isDragActive || isDragging
-              ? 'border-primary bg-primary/5'
+              ? 'image-uploader-dropzone-active'
               : 'border-gray-300 hover:border-primary/50 hover:bg-gray-50',
           )}
           onDragEnter={() => setIsDragging(true)}
           onDragLeave={() => setIsDragging(false)}
           onDrop={() => setIsDragging(false)}
+          role="button"
+          tabIndex={0}
+          aria-label="Drop zone for image upload"
         >
-          <input {...getInputProps()} ref={fileInputRef} />
+          <input {...getInputProps({ ref: fileInputRef })} aria-label="File input" />
           <div className="flex flex-col items-center justify-center space-y-3">
-            <ArrowUpTrayIcon className="h-10 w-10 text-gray-400" />
+            <ArrowUpTrayIcon className="h-10 w-10 text-gray-400" aria-hidden="true" />
             <div className="space-y-1">
               <p className="text-sm font-medium text-gray-900">Drag and drop an image, or</p>
               <p className="text-xs text-gray-500">PNG, JPG, GIF, WebP or SVG (max. {maxFileSizeMB}MB)</p>
@@ -175,13 +185,14 @@ export default function ImageUploader({
               type="button"
               className="px-4 py-2 text-sm font-medium text-white bg-primary rounded-md hover:bg-primary/90 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary"
               onClick={handleBrowseClick}
+              aria-label="Browse for files to upload"
             >
               Browse Files
             </button>
           </div>
         </div>
       ) : (
-        <div className="border rounded-lg p-4 space-y-4">
+        <div className="border rounded-lg p-4 space-y-4" role="region" aria-label="Image upload preview">
           {preview && (
             <div className="relative rounded-md overflow-hidden">
               <img
@@ -193,8 +204,9 @@ export default function ImageUploader({
                 <button
                   onClick={handleCancel}
                   className="absolute top-2 right-2 rounded-full bg-gray-800/70 p-1 text-white hover:bg-gray-900/90"
+                  aria-label="Cancel upload"
                 >
-                  <XMarkIcon className="h-5 w-5" />
+                  <XMarkIcon className="h-5 w-5" aria-hidden="true" />
                 </button>
               )}
             </div>
@@ -206,7 +218,7 @@ export default function ImageUploader({
                 <span>Uploading...</span>
                 <span>{uploadProgress}%</span>
               </div>
-              <div className="w-full bg-gray-200 rounded-full h-2">
+              <div className="w-full bg-gray-200 rounded-full h-2" role="progressbar" aria-valuenow={uploadProgress} aria-valuemin={0} aria-valuemax={100}>
                 <div
                   className="bg-primary h-2 rounded-full transition-all duration-300 ease-in-out"
                   style={{ width: `${uploadProgress}%` }}
@@ -216,7 +228,7 @@ export default function ImageUploader({
           )}
           
           {error && (
-            <div className="text-red-500 text-sm bg-red-50 p-2 rounded-md">
+            <div className="text-red-500 text-sm bg-red-50 p-2 rounded-md" role="alert">
               {error}
             </div>
           )}
