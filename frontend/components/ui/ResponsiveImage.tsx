@@ -13,6 +13,7 @@ interface ResponsiveImageProps extends React.ImgHTMLAttributes<HTMLImageElement>
   loadingStrategy?: 'lazy' | 'eager';
   placeholderSize?: number;
   fadeIn?: boolean;
+  fallbackSrc?: string;
 }
 
 /**
@@ -29,6 +30,7 @@ export default function ResponsiveImage({
   loadingStrategy = 'lazy',
   placeholderSize = 20,
   fadeIn = true,
+  fallbackSrc = '/images/placeholder.svg',
   ...props
 }: ResponsiveImageProps) {
   const [loaded, setLoaded] = useState(false);
@@ -49,8 +51,14 @@ export default function ResponsiveImage({
     }
   }, [src, placeholderSize, fadeIn]);
 
+  // Reset state when src changes
+  useEffect(() => {
+    setLoaded(false);
+    setError(false);
+  }, [src]);
+
   // Helper to determine what src to display
-  const displaySrc = error ? '/images/placeholder.svg' : src;
+  const displaySrc = error ? fallbackSrc : src;
 
   return (
     <div
@@ -60,17 +68,32 @@ export default function ResponsiveImage({
         background,
         className
       )}
+      role="img"
+      aria-label={alt}
     >
+      {/* Screen reader text for loading state */}
+      {!loaded && !error && (
+        <span className="sr-only">Loading image: {alt}</span>
+      )}
+      
+      {/* Error message for screen readers */}
+      {error && (
+        <span className="sr-only">Image failed to load: {alt}</span>
+      )}
+      
+      {/* Show placeholder while loading */}
       {placeholder && !loaded && (
         <div
           className="absolute inset-0 bg-center bg-no-repeat bg-cover blur-sm scale-105"
           style={{ backgroundImage: `url(${placeholder})` }}
+          aria-hidden="true"
         />
       )}
       
+      {/* Actual image */}
       <img
         src={displaySrc}
-        alt={alt}
+        alt={alt || "Image"} // Always require alt text
         loading={loadingStrategy}
         onLoad={() => setLoaded(true)}
         onError={() => setError(true)}
@@ -89,6 +112,15 @@ export default function ResponsiveImage({
         sizes={sizes}
         {...props}
       />
+      
+      {/* Error state visual indicator */}
+      {error && (
+        <div className="absolute inset-0 flex items-center justify-center bg-gray-200 bg-opacity-50">
+          <div className="bg-white p-2 rounded-md shadow-sm text-sm text-gray-500 max-w-[80%] text-center">
+            Unable to load image
+          </div>
+        </div>
+      )}
     </div>
   );
 }
