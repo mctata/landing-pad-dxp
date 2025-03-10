@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { MagnifyingGlassIcon, ArrowsPointingOutIcon } from '@heroicons/react/24/outline';
 import { useImageStore, Image } from '@/lib/store/useImageStore';
 import { unsplashService } from '@/lib/services/unsplashService';
@@ -21,6 +21,8 @@ export default function UnsplashBrowser({ onSelect, className }: UnsplashBrowser
   const [showCollection, setShowCollection] = useState(false);
   const [collections, setCollections] = useState<any[]>([]);
   const [selectedCollection, setSelectedCollection] = useState<string | null>(null);
+  const searchInputRef = useRef<HTMLInputElement>(null);
+  const selectedImageRef = useRef<HTMLDivElement>(null);
 
   // Debounced search
   const debouncedSearch = useCallback(
@@ -43,6 +45,20 @@ export default function UnsplashBrowser({ onSelect, className }: UnsplashBrowser
     setSearchValue(value);
     debouncedSearch(value);
   };
+
+  // Focus on search input when component mounts
+  useEffect(() => {
+    if (searchInputRef.current) {
+      searchInputRef.current.focus();
+    }
+  }, []);
+
+  // Scroll selected image into view
+  useEffect(() => {
+    if (selectedImage && selectedImageRef.current) {
+      selectedImageRef.current.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }
+  }, [selectedImage]);
 
   // Search Unsplash for images
   const searchImages = useCallback(async () => {
@@ -83,10 +99,13 @@ export default function UnsplashBrowser({ onSelect, className }: UnsplashBrowser
   // Fetch collections
   const fetchCollections = useCallback(async () => {
     try {
+      setLoading(true);
       const fetchedCollections = await unsplashService.getCollections();
       setCollections(fetchedCollections);
+      setLoading(false);
     } catch (err) {
       console.error('Failed to fetch collections:', err);
+      setLoading(false);
     }
   }, []);
 
@@ -103,6 +122,14 @@ export default function UnsplashBrowser({ onSelect, className }: UnsplashBrowser
   // Handle image selection
   const handleImageClick = (image: Image) => {
     setSelectedImage(image);
+  };
+
+  // Handle image selection via keyboard
+  const handleImageKeyDown = (e: React.KeyboardEvent, image: Image) => {
+    if (e.key === 'Enter' || e.key === ' ') {
+      e.preventDefault();
+      setSelectedImage(image);
+    }
   };
 
   // Confirm image selection
@@ -130,22 +157,33 @@ export default function UnsplashBrowser({ onSelect, className }: UnsplashBrowser
   const handleNextPage = () => {
     if (page < totalPages) {
       setPage(page + 1);
+      // Focus back to the top of the results
+      window.scrollTo(0, 0);
     }
   };
 
   const handlePrevPage = () => {
     if (page > 1) {
       setPage(page - 1);
+      // Focus back to the top of the results
+      window.scrollTo(0, 0);
     }
   };
 
   return (
     <div className={cn('flex flex-col h-full', className)}>
+      {/* Screen reader announcements */}
+      <div aria-live="polite" className="sr-only">
+        {loading && 'Loading images, please wait...'}
+        {error && `Error: ${error}`}
+        {selectedImage && `Selected image: ${selectedImage.alt || selectedImage.name}`}
+      </div>
+
       <div className="p-4 border-b">
         <div className="flex gap-4 items-center">
           <div className="relative flex-1">
             <div className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
-              <MagnifyingGlassIcon className="w-5 h-5 text-gray-400" />
+              <MagnifyingGlassIcon className="w-5 h-5 text-gray-400" aria-hidden="true" />
             </div>
             <input
               type="search"
@@ -153,6 +191,8 @@ export default function UnsplashBrowser({ onSelect, className }: UnsplashBrowser
               placeholder="Search Unsplash..."
               value={searchValue}
               onChange={handleSearchChange}
+              ref={searchInputRef}
+              aria-label="Search Unsplash images"
             />
           </div>
           <button
@@ -163,71 +203,123 @@ export default function UnsplashBrowser({ onSelect, className }: UnsplashBrowser
                 ? 'bg-primary/10 text-primary'
                 : 'text-gray-700 hover:bg-gray-100'
             )}
+            aria-pressed={showCollection}
+            aria-label={showCollection ? "Show search" : "Show collections"}
           >
             {showCollection ? 'Search' : 'Collections'}
           </button>
         </div>
       </div>
 
-      <div className="flex-1 overflow-y-auto">
+      <div 
+        className="flex-1 overflow-y-auto"
+        role="region" 
+        aria-label={showCollection ? "Unsplash collections" : "Unsplash images"}
+      >
         {loading ? (
           <div className="flex items-center justify-center h-full">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+            <div 
+              className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"
+              role="status"
+              aria-label="Loading images"
+            >
+              <span className="sr-only">Loading...</span>
+            </div>
           </div>
         ) : error ? (
-          <div className="p-4 text-center text-red-500">{error}</div>
+          <div className="p-4 text-center text-red-500" role="alert">
+            {error}
+          </div>
         ) : showCollection ? (
-          <div className="grid grid-cols-2 gap-4 p-4">
-            {collections.map((collection) => (
-              <div
-                key={collection.id}
-                className={cn(
-                  'cursor-pointer rounded-lg overflow-hidden relative group',
-                  selectedCollection === collection.id && 'ring-2 ring-primary'
-                )}
-                onClick={() => handleCollectionClick(collection.id)}
-              >
-                {collection.preview_photos?.[0] && (
-                  <img
-                    src={collection.preview_photos[0].urls.small}
-                    alt={collection.title}
-                    className="w-full h-32 object-cover"
-                  />
-                )}
-                <div className="absolute inset-0 bg-black/60 flex items-center justify-center">
-                  <h3 className="text-white font-medium text-sm px-2 text-center">
-                    {collection.title}
-                  </h3>
-                </div>
+          <div 
+            className="grid grid-cols-2 gap-4 p-4"
+            role="grid"
+            aria-label="Unsplash collections"
+          >
+            {collections.length === 0 ? (
+              <div className="col-span-2 text-center py-8 text-gray-500">
+                No collections found
               </div>
-            ))}
+            ) : (
+              collections.map((collection) => (
+                <div
+                  key={collection.id}
+                  className={cn(
+                    'cursor-pointer rounded-lg overflow-hidden relative group',
+                    selectedCollection === collection.id && 'ring-2 ring-primary'
+                  )}
+                  onClick={() => handleCollectionClick(collection.id)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                      e.preventDefault();
+                      handleCollectionClick(collection.id);
+                    }
+                  }}
+                  role="gridcell"
+                  tabIndex={0}
+                  aria-selected={selectedCollection === collection.id}
+                >
+                  {collection.preview_photos?.[0] && (
+                    <img
+                      src={collection.preview_photos[0].urls.small}
+                      alt={`${collection.title} collection preview`}
+                      className="w-full h-32 object-cover"
+                    />
+                  )}
+                  <div className="absolute inset-0 bg-black/60 flex items-center justify-center">
+                    <h3 className="text-white font-medium text-sm px-2 text-center">
+                      {collection.title}
+                    </h3>
+                  </div>
+                </div>
+              ))
+            )}
           </div>
         ) : (
-          <div className="grid grid-cols-2 md:grid-cols-3 gap-4 p-4">
-            {images.map((image) => (
-              <div
-                key={image.id}
-                className={cn(
-                  'cursor-pointer rounded-lg overflow-hidden relative group',
-                  selectedImage?.id === image.id && 'ring-2 ring-primary'
-                )}
-                onClick={() => handleImageClick(image)}
-              >
-                <img
-                  src={image.thumbnailUrl || image.url}
-                  alt={image.alt || image.name}
-                  className="w-full h-40 object-cover"
-                />
-                <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-30 transition-opacity flex items-center justify-center opacity-0 group-hover:opacity-100">
-                  <ArrowsPointingOutIcon className="w-6 h-6 text-white" />
-                </div>
-                {selectedImage?.id === image.id && (
-                  <div className="absolute bottom-0 left-0 right-0 bg-primary text-white text-xs py-1 px-2">
-                    Selected
-                  </div>
-                )}
+          <div 
+            className="grid grid-cols-2 md:grid-cols-3 gap-4 p-4"
+            role="grid"
+            aria-label="Unsplash images search results"
+          >
+            {images.length === 0 ? (
+              <div className="col-span-3 text-center py-8 text-gray-500">
+                No images found. Try a different search term.
               </div>
-            ))}
+            ) : (
+              images.map((image) => (
+                <div
+                  key={image.id}
+                  ref={selectedImage?.id === image.id ? selectedImageRef : null}
+                  className={cn(
+                    'cursor-pointer rounded-lg overflow-hidden relative group',
+                    selectedImage?.id === image.id && 'ring-2 ring-primary'
+                  )}
+                  onClick={() => handleImageClick(image)}
+                  onKeyDown={(e) => handleImageKeyDown(e, image)}
+                  role="gridcell"
+                  tabIndex={0}
+                  aria-selected={selectedImage?.id === image.id}
+                  aria-label={image.alt || image.name}
+                >
+                  <img
+                    src={image.thumbnailUrl || image.url}
+                    alt={image.alt || image.name}
+                    className="w-full h-40 object-cover"
+                  />
+                  <div 
+                    className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-30 transition-opacity flex items-center justify-center opacity-0 group-hover:opacity-100"
+                    aria-hidden="true"
+                  >
+                    <ArrowsPointingOutIcon className="w-6 h-6 text-white" />
+                  </div>
+                  {selectedImage?.id === image.id && (
+                    <div className="absolute bottom-0 left-0 right-0 bg-primary text-white text-xs py-1 px-2">
+                      Selected
+                    </div>
+                  )}
+                </div>
+              ))
+            )}
           </div>
         )}
       </div>
@@ -239,11 +331,13 @@ export default function UnsplashBrowser({ onSelect, className }: UnsplashBrowser
               onClick={handlePrevPage}
               disabled={page <= 1}
               className={cn(
-                'px-3 py-1 text-sm font-medium rounded',
+                'px-3 py-1 text-sm font-medium rounded min-w-[80px] min-h-[36px]',
                 page <= 1
                   ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
                   : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
               )}
+              aria-label="Previous page"
+              aria-disabled={page <= 1}
             >
               Previous
             </button>
@@ -251,11 +345,13 @@ export default function UnsplashBrowser({ onSelect, className }: UnsplashBrowser
               onClick={handleNextPage}
               disabled={page >= totalPages}
               className={cn(
-                'px-3 py-1 text-sm font-medium rounded',
+                'px-3 py-1 text-sm font-medium rounded min-w-[80px] min-h-[36px]',
                 page >= totalPages
                   ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
                   : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
               )}
+              aria-label="Next page"
+              aria-disabled={page >= totalPages}
             >
               Next
             </button>
@@ -264,11 +360,12 @@ export default function UnsplashBrowser({ onSelect, className }: UnsplashBrowser
             onClick={handleSelectImage}
             disabled={!selectedImage}
             className={cn(
-              'px-4 py-2 text-sm font-medium rounded-md',
+              'px-4 py-2 text-sm font-medium rounded-md min-w-[150px] min-h-[36px]',
               !selectedImage
                 ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
                 : 'bg-primary text-white hover:bg-primary/90'
             )}
+            aria-disabled={!selectedImage}
           >
             Use Selected Image
           </button>
@@ -283,6 +380,19 @@ export default function UnsplashBrowser({ onSelect, className }: UnsplashBrowser
           >
             Unsplash
           </a>
+          {selectedImage?.unsplashData?.user && (
+            <span className="block mt-1">
+              Photo by{' '}
+              <a
+                href={`https://unsplash.com/@${selectedImage.unsplashData.user.username}?utm_source=landing_pad&utm_medium=referral`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-primary hover:underline"
+              >
+                {selectedImage.unsplashData.user.name}
+              </a>
+            </span>
+          )}
         </div>
       </div>
     </div>
