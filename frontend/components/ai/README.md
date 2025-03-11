@@ -9,13 +9,16 @@ The AI Content Generation UI provides a suite of React components for integratin
 - **AIContentGenerationForm**: Form for submitting AI content generation requests with parameters like tone, length, and prompt.
 - **AIContentEditor**: Interface for editing content with AI assistance, offering functions like shortening, expanding, and style adjustments.
 - **AIContentModal**: Modal dialog for generating and previewing AI content before applying it.
-- **AISuggestionPanel**: Side panel that generates and displays AI suggestions based on the user's criteria.
+- **AISuggestionPanel**: Panel for displaying AI content suggestions.
 - **AISuggestionCard**: Card component for displaying individual AI suggestions with preview and apply functionality.
+- **AIContentForm**: Forms for generating content with AI.
+- **AIPromptInput**: Input component for AI prompts.
 
 ### Utility Components
 
 - **AIAssistButton**: Button that triggers AI assistance for specific element types.
 - **AIEnhanceToolbar**: Quick-access toolbar for common AI content enhancement functions.
+- **AISuggestionPopover**: Popover component for displaying inline suggestions.
 
 ### Integration Components
 
