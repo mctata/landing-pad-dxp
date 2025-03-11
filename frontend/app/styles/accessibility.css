@@ -1,0 +1,71 @@
+/* Accessibility improvements for text contrast */
+
+/* Improve contrast for text on light backgrounds */
+.text-secondary-500 {
+  color: #64748b !important; /* Darker shade for better contrast */
+}
+
+.text-secondary-600 {
+  color: #475569 !important; /* Ensure good contrast on white */
+}
+
+/* Ensure focus styles are visible */
+:focus-visible {
+  outline: 2px solid #3b82f6 !important;
+  outline-offset: 2px;
+}
+
+/* Ensure link text has sufficient contrast */
+a {
+  text-decoration: underline;
+}
+
+/* Improve contrast for disabled buttons */
+button:disabled,
+[role="button"]:disabled {
+  opacity: 0.65 !important; /* Slightly higher than default for better visibility */
+}
+
+/* Ensure form labels have good contrast */
+label {
+  color: #334155 !important; /* Darker than default secondary text */
+}
+
+/* Make error states more visible for colorblind users */
+.text-error-600 {
+  color: #be123c !important; /* More visible red */
+}
+
+/* Improve contrast for placeholders */
+::placeholder {
+  color: #64748b !important; /* Darker than default placeholder text */
+  opacity: 1;
+}
+
+/* Ensure ARIA-hidden elements are truly invisible to all users */
+[aria-hidden="true"] {
+  display: none !important;
+}
+
+/* Add underline on hover for interactive elements for better affordance */
+button:not([disabled]):hover,
+[role="button"]:not([disabled]):hover {
+  text-decoration: underline;
+}
+
+/* Skip to content link - visible on focus */
+.skip-to-content {
+  position: absolute;
+  left: -9999px;
+  top: -9999px;
+  z-index: 9999;
+}
+
+.skip-to-content:focus {
+  left: 0;
+  top: 0;
+  background-color: #ffffff;
+  color: #3b82f6;
+  padding: 10px;
+  border: 2px solid #3b82f6;
+}
