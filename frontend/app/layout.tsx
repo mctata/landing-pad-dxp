@@ -1,6 +1,7 @@
 import './globals.css'
 import './styles/accessibility.css'
 import { Inter } from 'next/font/google'
+import { Providers } from './providers'
 
 const inter = Inter({ subsets: ['latin'] })
 
@@ -25,10 +26,25 @@ export default function RootLayout({
         <a href="#main-content" className="skip-to-content">
           Skip to content
         </a>
-        <main id="main-content">
-          {children}
-        </main>
+        <Providers>
+          <main id="main-content">
+            {children}
+          </main>
+        </Providers>
       </body>
     </html>
   )
+}
+
+// Export a Web Vitals function to measure performance
+export function reportWebVitals(metric: any) {
+  // Import the function dynamically to avoid issues with SSR
+  if (typeof window !== 'undefined') {
+    import('@/lib/monitoring').then(({ reportWebVitals }) => {
+      reportWebVitals(metric);
+    }).catch(() => {
+      // Fail silently in case the monitoring module fails to load
+      console.warn('Failed to report web vitals');
+    });
+  }
 }

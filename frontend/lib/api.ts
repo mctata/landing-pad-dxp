@@ -1,4 +1,6 @@
 import axios from 'axios';
+import { logger, trackApiTiming, trackClientError } from './monitoring';
+import * as Sentry from '@sentry/nextjs';
 
 // API base URL
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000';
@@ -11,7 +13,7 @@ const api = axios.create({
   },
 });
 
-// Interceptor to add auth token to requests
+// Interceptor to add auth token to requests and timing
 api.interceptors.request.use(
   (config) => {
     // Add token from localStorage if available
@@ -21,17 +23,101 @@ api.interceptors.request.use(
       config.headers['Authorization'] = `Bearer ${token}`;
     }
     
+    // Add request start time for performance tracking
+    config.metadata = { startTime: new Date().getTime() };
+    
+    // Trace with Sentry if available
+    if (process.env.NEXT_PUBLIC_SENTRY_DSN) {
+      const transaction = Sentry.startTransaction({
+        name: `${config.method?.toUpperCase() || 'GET'} ${config.url}`,
+        op: 'http.client',
+      });
+      
+      // Store transaction in config for later use
+      config.metadata.sentryTransaction = transaction;
+    }
+    
+    logger.debug(`API Request: ${config.method?.toUpperCase() || 'GET'} ${config.url}`, {
+      url: config.url,
+      method: config.method,
+    });
+    
     return config;
   },
   (error) => {
+    logger.error('API request error', { error });
     return Promise.reject(error);
   }
 );
 
-// Interceptor to handle auth errors
+// Interceptor to handle auth errors and track performance
 api.interceptors.response.use(
-  (response) => response,
+  (response) => {
+    // Calculate request duration
+    if (response.config.metadata) {
+      const duration = new Date().getTime() - response.config.metadata.startTime;
+      
+      // Track API timing
+      trackApiTiming(
+        response.config.url || 'unknown',
+        response.config.method?.toUpperCase() || 'GET',
+        duration,
+        response.status
+      );
+      
+      // Finish Sentry transaction if it exists
+      if (response.config.metadata.sentryTransaction) {
+        const transaction = response.config.metadata.sentryTransaction;
+        transaction.setData('status_code', response.status);
+        transaction.setData('duration_ms', duration);
+        transaction.finish();
+      }
+      
+      logger.debug(`API Response: ${response.config.method?.toUpperCase() || 'GET'} ${response.config.url}`, {
+        url: response.config.url,
+        method: response.config.method,
+        status: response.status,
+        duration,
+      });
+    }
+    
+    return response;
+  },
   async (error) => {
+    // Track error timing and details
+    if (error.config?.metadata) {
+      const duration = new Date().getTime() - error.config.metadata.startTime;
+      const status = error.response?.status || 0;
+      
+      // Track API timing for failed requests
+      trackApiTiming(
+        error.config.url || 'unknown',
+        error.config.method?.toUpperCase() || 'GET',
+        duration,
+        status
+      );
+      
+      // Finish Sentry transaction if it exists
+      if (error.config.metadata.sentryTransaction) {
+        const transaction = error.config.metadata.sentryTransaction;
+        transaction.setData('status_code', status);
+        transaction.setData('duration_ms', duration);
+        transaction.setData('error', error.message);
+        transaction.finish();
+      }
+      
+      // Track client error
+      trackClientError(error, `API Error: ${error.config.method?.toUpperCase() || 'GET'} ${error.config.url}`);
+      
+      logger.error(`API Error: ${error.config.method?.toUpperCase() || 'GET'} ${error.config.url}`, {
+        url: error.config.url,
+        method: error.config.method,
+        status,
+        duration,
+        error: error.message,
+      });
+    }
+    
     const originalRequest = error.config;
     
     // If 401 Unauthorized and not already retrying
