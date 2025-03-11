@@ -1,6 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
-import { Table, Card, Tabs, Tab, Pagination, Alert, Badge } from 'react-bootstrap';
+import {
+  ArrowPathIcon,
+  ArrowLeftIcon,
+  ArrowRightIcon,
+  ChevronLeftIcon,
+  ChevronRightIcon,
+  ChevronDoubleLeftIcon,
+  ChevronDoubleRightIcon
+} from '@heroicons/react/24/outline';
 
 interface Stats {
   users: number;
@@ -67,7 +75,7 @@ interface PaginationData {
   totalPages: number;
 }
 
-const AdminDashboard: React.FC = () => {
+export const AdminDashboard: React.FC = () => {
   const [activeTab, setActiveTab] = useState('overview');
   const [stats, setStats] = useState<Stats | null>(null);
   const [recentDeployments, setRecentDeployments] = useState<Deployment[]>([]);
@@ -214,327 +222,598 @@ const AdminDashboard: React.FC = () => {
   };
 
   const renderStatusBadge = (status: string) => {
+    let bgColor = "bg-gray-100 text-gray-800";
+    
     switch (status) {
       case 'success':
-        return <Badge bg="success">Success</Badge>;
-      case 'failed':
-        return <Badge bg="danger">Failed</Badge>;
-      case 'queued':
-        return <Badge bg="warning">Queued</Badge>;
-      case 'in_progress':
-        return <Badge bg="info">In Progress</Badge>;
       case 'active':
-        return <Badge bg="success">Active</Badge>;
-      case 'pending':
-        return <Badge bg="warning">Pending</Badge>;
-      case 'error':
-        return <Badge bg="danger">Error</Badge>;
-      case 'draft':
-        return <Badge bg="secondary">Draft</Badge>;
       case 'published':
-        return <Badge bg="success">Published</Badge>;
-      case 'archived':
-        return <Badge bg="dark">Archived</Badge>;
       case 'verified':
-        return <Badge bg="success">Verified</Badge>;
+        bgColor = "bg-green-100 text-green-800";
+        break;
       case 'failed':
-        return <Badge bg="danger">Failed</Badge>;
-      default:
-        return <Badge bg="secondary">{status}</Badge>;
+      case 'error':
+        bgColor = "bg-red-100 text-red-800";
+        break;
+      case 'queued':
+      case 'pending':
+        bgColor = "bg-yellow-100 text-yellow-800";
+        break;
+      case 'in_progress':
+        bgColor = "bg-blue-100 text-blue-800";
+        break;
+      case 'draft':
+        bgColor = "bg-gray-100 text-gray-800";
+        break;
+      case 'archived':
+        bgColor = "bg-gray-800 text-white";
+        break;
     }
+    
+    return (
+      <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${bgColor}`}>
+        {status.charAt(0).toUpperCase() + status.slice(1).replace('_', ' ')}
+      </span>
+    );
+  };
+
+  const renderPagination = (
+    pagination: PaginationData, 
+    onPageChange: (page: number) => void,
+    ariaLabel: string
+  ) => {
+    return (
+      <nav className="flex items-center justify-between border-t border-gray-200 px-4 sm:px-0 mt-6" aria-label={ariaLabel}>
+        <div className="hidden md:-mt-px md:flex">
+          <button
+            onClick={() => onPageChange(1)}
+            disabled={pagination.currentPage === 1}
+            className={`inline-flex items-center border-t-2 ${
+              pagination.currentPage === 1 
+                ? 'border-transparent text-gray-300 cursor-not-allowed' 
+                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+            } px-4 pt-4 text-sm font-medium`}
+            aria-label="First page"
+          >
+            <ChevronDoubleLeftIcon className="h-5 w-5 mr-2" aria-hidden="true" />
+            First
+          </button>
+          
+          <button
+            onClick={() => onPageChange(pagination.currentPage - 1)}
+            disabled={pagination.currentPage === 1}
+            className={`inline-flex items-center border-t-2 ${
+              pagination.currentPage === 1 
+                ? 'border-transparent text-gray-300 cursor-not-allowed' 
+                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+            } px-4 pt-4 text-sm font-medium`}
+            aria-label="Previous page"
+          >
+            <ChevronLeftIcon className="h-5 w-5 mr-2" aria-hidden="true" />
+            Previous
+          </button>
+          
+          {[...Array(pagination.totalPages)].map((_, i) => {
+            // Show at most 5 page numbers, centered around the current page
+            if (pagination.totalPages <= 5 || 
+                i + 1 === 1 || 
+                i + 1 === pagination.totalPages ||
+                (i + 1 >= pagination.currentPage - 1 && i + 1 <= pagination.currentPage + 1)) {
+              return (
+                <button
+                  key={i}
+                  onClick={() => onPageChange(i + 1)}
+                  className={`inline-flex items-center border-t-2 px-4 pt-4 text-sm font-medium ${
+                    i + 1 === pagination.currentPage
+                      ? 'border-blue-500 text-blue-600'
+                      : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                  }`}
+                  aria-label={`Page ${i + 1}`}
+                  aria-current={i + 1 === pagination.currentPage ? 'page' : undefined}
+                >
+                  {i + 1}
+                </button>
+              );
+            } else if (
+              (i === 1 && pagination.currentPage > 3) || 
+              (i === pagination.totalPages - 2 && pagination.currentPage < pagination.totalPages - 2)
+            ) {
+              return (
+                <span key={i} className="inline-flex items-center border-t-2 border-transparent px-4 pt-4 text-sm font-medium text-gray-500">
+                  ...
+                </span>
+              );
+            }
+            return null;
+          })}
+          
+          <button
+            onClick={() => onPageChange(pagination.currentPage + 1)}
+            disabled={pagination.currentPage === pagination.totalPages || pagination.totalPages === 0}
+            className={`inline-flex items-center border-t-2 ${
+              pagination.currentPage === pagination.totalPages || pagination.totalPages === 0
+                ? 'border-transparent text-gray-300 cursor-not-allowed' 
+                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+            } px-4 pt-4 text-sm font-medium`}
+            aria-label="Next page"
+          >
+            Next
+            <ChevronRightIcon className="h-5 w-5 ml-2" aria-hidden="true" />
+          </button>
+          
+          <button
+            onClick={() => onPageChange(pagination.totalPages)}
+            disabled={pagination.currentPage === pagination.totalPages || pagination.totalPages === 0}
+            className={`inline-flex items-center border-t-2 ${
+              pagination.currentPage === pagination.totalPages || pagination.totalPages === 0
+                ? 'border-transparent text-gray-300 cursor-not-allowed' 
+                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+            } px-4 pt-4 text-sm font-medium`}
+            aria-label="Last page"
+          >
+            Last
+            <ChevronDoubleRightIcon className="h-5 w-5 ml-2" aria-hidden="true" />
+          </button>
+        </div>
+        
+        {/* Mobile pagination */}
+        <div className="flex w-full md:hidden justify-between">
+          <button
+            onClick={() => onPageChange(pagination.currentPage - 1)}
+            disabled={pagination.currentPage === 1}
+            className={`inline-flex items-center ${
+              pagination.currentPage === 1 
+                ? 'text-gray-300 cursor-not-allowed' 
+                : 'text-gray-500 hover:text-gray-700'
+            } py-2 text-sm font-medium`}
+            aria-label="Previous page"
+          >
+            <ChevronLeftIcon className="h-5 w-5 mr-1" aria-hidden="true" />
+            Previous
+          </button>
+          
+          <span className="text-sm text-gray-700">
+            Page {pagination.currentPage} of {pagination.totalPages}
+          </span>
+          
+          <button
+            onClick={() => onPageChange(pagination.currentPage + 1)}
+            disabled={pagination.currentPage === pagination.totalPages || pagination.totalPages === 0}
+            className={`inline-flex items-center ${
+              pagination.currentPage === pagination.totalPages || pagination.totalPages === 0
+                ? 'text-gray-300 cursor-not-allowed' 
+                : 'text-gray-500 hover:text-gray-700'
+            } py-2 text-sm font-medium`}
+            aria-label="Next page"
+          >
+            Next
+            <ChevronRightIcon className="h-5 w-5 ml-1" aria-hidden="true" />
+          </button>
+        </div>
+      </nav>
+    );
   };
 
   if (loading && !stats && !websites.length && !deployments.length && !domains.length) {
-    return <div className="text-center p-5">Loading...</div>;
+    return (
+      <div className="flex justify-center items-center h-64">
+        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-600" role="status">
+          <span className="sr-only">Loading...</span>
+        </div>
+      </div>
+    );
   }
 
   return (
-    <div className="admin-dashboard p-4">
-      <h1 className="mb-4">Admin Dashboard</h1>
+    <div className="px-4 sm:px-6 lg:px-8 py-6">
+      <div className="sm:flex sm:items-center sm:justify-between">
+        <div>
+          <h1 className="text-2xl font-semibold text-gray-900">Admin Dashboard</h1>
+          <p className="mt-2 text-sm text-gray-700">
+            View and manage your websites, deployments, and domains
+          </p>
+        </div>
+        <div className="mt-4 sm:mt-0">
+          <button
+            type="button"
+            onClick={() => {
+              if (activeTab === 'overview') fetchStats();
+              if (activeTab === 'websites') fetchWebsites(websitesPagination.currentPage);
+              if (activeTab === 'deployments') fetchDeployments(deploymentsPagination.currentPage);
+              if (activeTab === 'domains') fetchDomains(domainsPagination.currentPage);
+            }}
+            className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+            aria-label="Refresh data"
+          >
+            <ArrowPathIcon className="h-4 w-4 mr-2" aria-hidden="true" />
+            Refresh
+          </button>
+        </div>
+      </div>
 
       {error && (
-        <Alert variant="danger" className="mb-4">
-          {error}
-        </Alert>
+        <div className="mt-4 bg-red-50 border-l-4 border-red-400 p-4" role="alert">
+          <div className="flex">
+            <div className="flex-shrink-0">
+              <svg className="h-5 w-5 text-red-400" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                <path fillRule="evenodd" d="M8.485 2.495c.873-1.514 3.157-1.514 4.03 0l6.28 10.875c.87 1.513-.17 3.398-2.017 3.398H4.222c-1.847 0-2.887-1.885-2.017-3.398l6.28-10.875zM10 6a.75.75 0 01.75.75v3.5a.75.75 0 01-1.5 0v-3.5A.75.75 0 0110 6zm0 9a1 1 0 100-2 1 1 0 000 2z" clipRule="evenodd" />
+              </svg>
+            </div>
+            <div className="ml-3">
+              <p className="text-sm text-red-700">{error}</p>
+            </div>
+          </div>
+        </div>
       )}
 
-      <Tabs
-        activeKey={activeTab}
-        onSelect={(key) => handleTabChange(key as string)}
-        className="mb-4"
-      >
-        <Tab eventKey="overview" title="Overview">
-          {stats && (
-            <div className="stats-cards">
-              <div className="row mb-4">
-                <div className="col-md-3">
-                  <Card className="mb-3">
-                    <Card.Body>
-                      <h5>Total Users</h5>
-                      <h2>{stats.users}</h2>
-                    </Card.Body>
-                  </Card>
+      <div className="mt-6">
+        <div className="border-b border-gray-200">
+          <nav className="-mb-px flex space-x-8" aria-label="Tabs">
+            {[
+              { key: 'overview', name: 'Overview' },
+              { key: 'websites', name: 'Websites' },
+              { key: 'deployments', name: 'Deployments' },
+              { key: 'domains', name: 'Domains' },
+            ].map((tab) => (
+              <button
+                key={tab.key}
+                onClick={() => handleTabChange(tab.key)}
+                className={`
+                  whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm
+                  ${activeTab === tab.key
+                    ? 'border-blue-500 text-blue-600'
+                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'}
+                `}
+                aria-current={activeTab === tab.key ? 'page' : undefined}
+              >
+                {tab.name}
+              </button>
+            ))}
+          </nav>
+        </div>
+
+        <div className="mt-6">
+          {activeTab === 'overview' && stats && (
+            <>
+              <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4">
+                <div className="bg-white overflow-hidden shadow rounded-lg">
+                  <div className="px-4 py-5 sm:p-6">
+                    <dl>
+                      <dt className="text-sm font-medium text-gray-500 truncate">Total Users</dt>
+                      <dd className="mt-1 text-3xl font-semibold text-gray-900">{stats.users}</dd>
+                    </dl>
+                  </div>
                 </div>
-                <div className="col-md-3">
-                  <Card className="mb-3">
-                    <Card.Body>
-                      <h5>Total Websites</h5>
-                      <h2>{stats.websites}</h2>
-                    </Card.Body>
-                  </Card>
+                
+                <div className="bg-white overflow-hidden shadow rounded-lg">
+                  <div className="px-4 py-5 sm:p-6">
+                    <dl>
+                      <dt className="text-sm font-medium text-gray-500 truncate">Total Websites</dt>
+                      <dd className="mt-1 text-3xl font-semibold text-gray-900">{stats.websites}</dd>
+                    </dl>
+                  </div>
                 </div>
-                <div className="col-md-3">
-                  <Card className="mb-3">
-                    <Card.Body>
-                      <h5>Total Deployments</h5>
-                      <h2>{stats.deployments}</h2>
-                    </Card.Body>
-                  </Card>
+                
+                <div className="bg-white overflow-hidden shadow rounded-lg">
+                  <div className="px-4 py-5 sm:p-6">
+                    <dl>
+                      <dt className="text-sm font-medium text-gray-500 truncate">Total Deployments</dt>
+                      <dd className="mt-1 text-3xl font-semibold text-gray-900">{stats.deployments}</dd>
+                    </dl>
+                  </div>
                 </div>
-                <div className="col-md-3">
-                  <Card className="mb-3">
-                    <Card.Body>
-                      <h5>Total Domains</h5>
-                      <h2>{stats.domains}</h2>
-                    </Card.Body>
-                  </Card>
+                
+                <div className="bg-white overflow-hidden shadow rounded-lg">
+                  <div className="px-4 py-5 sm:p-6">
+                    <dl>
+                      <dt className="text-sm font-medium text-gray-500 truncate">Total Domains</dt>
+                      <dd className="mt-1 text-3xl font-semibold text-gray-900">{stats.domains}</dd>
+                    </dl>
+                  </div>
                 </div>
               </div>
 
-              <div className="row mb-4">
-                <div className="col-md-6">
-                  <Card className="mb-3">
-                    <Card.Body>
-                      <h5>Failed Deployments</h5>
-                      <h2>{stats.failedDeployments}</h2>
-                    </Card.Body>
-                  </Card>
+              <div className="mt-5 grid grid-cols-1 gap-5 sm:grid-cols-2">
+                <div className="bg-white overflow-hidden shadow rounded-lg">
+                  <div className="px-4 py-5 sm:p-6">
+                    <dl>
+                      <dt className="text-sm font-medium text-gray-500 truncate">Failed Deployments</dt>
+                      <dd className="mt-1 text-3xl font-semibold text-red-600">{stats.failedDeployments}</dd>
+                    </dl>
+                  </div>
                 </div>
-                <div className="col-md-6">
-                  <Card className="mb-3">
-                    <Card.Body>
-                      <h5>Active Domains</h5>
-                      <h2>{stats.activeDomains}</h2>
-                    </Card.Body>
-                  </Card>
+                
+                <div className="bg-white overflow-hidden shadow rounded-lg">
+                  <div className="px-4 py-5 sm:p-6">
+                    <dl>
+                      <dt className="text-sm font-medium text-gray-500 truncate">Active Domains</dt>
+                      <dd className="mt-1 text-3xl font-semibold text-green-600">{stats.activeDomains}</dd>
+                    </dl>
+                  </div>
                 </div>
               </div>
+
+              <h2 className="mt-8 text-lg font-medium text-gray-900">Recent Deployments</h2>
+              <div className="mt-3 flex flex-col">
+                <div className="-my-2 overflow-x-auto sm:-mx-6 lg:-mx-8">
+                  <div className="py-2 align-middle inline-block min-w-full sm:px-6 lg:px-8">
+                    <div className="shadow overflow-hidden border-b border-gray-200 sm:rounded-lg">
+                      <table className="min-w-full divide-y divide-gray-200">
+                        <thead className="bg-gray-50">
+                          <tr>
+                            <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                              Status
+                            </th>
+                            <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                              Website
+                            </th>
+                            <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                              Version
+                            </th>
+                            <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                              User
+                            </th>
+                            <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                              Created At
+                            </th>
+                            <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                              Build Time
+                            </th>
+                          </tr>
+                        </thead>
+                        <tbody className="bg-white divide-y divide-gray-200">
+                          {recentDeployments.length > 0 ? (
+                            recentDeployments.map((deployment) => (
+                              <tr key={deployment.id}>
+                                <td className="px-6 py-4 whitespace-nowrap">
+                                  {renderStatusBadge(deployment.status)}
+                                </td>
+                                <td className="px-6 py-4 whitespace-nowrap">
+                                  <div className="text-sm text-gray-900">{deployment.website?.name || 'N/A'}</div>
+                                </td>
+                                <td className="px-6 py-4 whitespace-nowrap">
+                                  <div className="text-sm text-gray-900">{deployment.version}</div>
+                                </td>
+                                <td className="px-6 py-4 whitespace-nowrap">
+                                  <div className="text-sm text-gray-900">{`${deployment.user.firstName} ${deployment.user.lastName}`}</div>
+                                </td>
+                                <td className="px-6 py-4 whitespace-nowrap">
+                                  <div className="text-sm text-gray-900">{formatDate(deployment.createdAt)}</div>
+                                </td>
+                                <td className="px-6 py-4 whitespace-nowrap">
+                                  <div className="text-sm text-gray-900">
+                                    {deployment.buildTime ? `${(deployment.buildTime / 1000).toFixed(2)}s` : 'N/A'}
+                                  </div>
+                                </td>
+                              </tr>
+                            ))
+                          ) : (
+                            <tr>
+                              <td colSpan={6} className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 text-center">
+                                No deployments found
+                              </td>
+                            </tr>
+                          )}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </>
+          )}
+
+          {activeTab === 'websites' && (
+            <div className="flex flex-col">
+              <div className="-my-2 overflow-x-auto sm:-mx-6 lg:-mx-8">
+                <div className="py-2 align-middle inline-block min-w-full sm:px-6 lg:px-8">
+                  <div className="shadow overflow-hidden border-b border-gray-200 sm:rounded-lg">
+                    <table className="min-w-full divide-y divide-gray-200">
+                      <thead className="bg-gray-50">
+                        <tr>
+                          <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            Name
+                          </th>
+                          <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            Status
+                          </th>
+                          <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            User
+                          </th>
+                          <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            Created
+                          </th>
+                          <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            Last Published
+                          </th>
+                        </tr>
+                      </thead>
+                      <tbody className="bg-white divide-y divide-gray-200">
+                        {websites.length > 0 ? (
+                          websites.map((website) => (
+                            <tr key={website.id}>
+                              <td className="px-6 py-4 whitespace-nowrap">
+                                <div className="text-sm font-medium text-gray-900">{website.name}</div>
+                              </td>
+                              <td className="px-6 py-4 whitespace-nowrap">
+                                {renderStatusBadge(website.status)}
+                              </td>
+                              <td className="px-6 py-4 whitespace-nowrap">
+                                <div className="text-sm text-gray-900">{`${website.user.firstName} ${website.user.lastName}`}</div>
+                              </td>
+                              <td className="px-6 py-4 whitespace-nowrap">
+                                <div className="text-sm text-gray-900">{formatDate(website.createdAt)}</div>
+                              </td>
+                              <td className="px-6 py-4 whitespace-nowrap">
+                                <div className="text-sm text-gray-900">{formatDate(website.lastPublishedAt)}</div>
+                              </td>
+                            </tr>
+                          ))
+                        ) : (
+                          <tr>
+                            <td colSpan={5} className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 text-center">
+                              No websites found
+                            </td>
+                          </tr>
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              </div>
+              {websitesPagination.totalPages > 0 && (
+                renderPagination(websitesPagination, handleWebsitesPageChange, "Website pagination")
+              )}
             </div>
           )}
 
-          <h3 className="mb-3">Recent Deployments</h3>
-          <Table striped bordered hover responsive>
-            <thead>
-              <tr>
-                <th>Status</th>
-                <th>Website</th>
-                <th>Version</th>
-                <th>User</th>
-                <th>Created At</th>
-                <th>Build Time</th>
-              </tr>
-            </thead>
-            <tbody>
-              {recentDeployments.map((deployment) => (
-                <tr key={deployment.id}>
-                  <td>{renderStatusBadge(deployment.status)}</td>
-                  <td>{deployment.website?.name || 'N/A'}</td>
-                  <td>{deployment.version}</td>
-                  <td>{`${deployment.user.firstName} ${deployment.user.lastName}`}</td>
-                  <td>{formatDate(deployment.createdAt)}</td>
-                  <td>{deployment.buildTime ? `${(deployment.buildTime / 1000).toFixed(2)}s` : 'N/A'}</td>
-                </tr>
-              ))}
-              {recentDeployments.length === 0 && (
-                <tr>
-                  <td colSpan={6} className="text-center">No deployments found</td>
-                </tr>
+          {activeTab === 'deployments' && (
+            <div className="flex flex-col">
+              <div className="-my-2 overflow-x-auto sm:-mx-6 lg:-mx-8">
+                <div className="py-2 align-middle inline-block min-w-full sm:px-6 lg:px-8">
+                  <div className="shadow overflow-hidden border-b border-gray-200 sm:rounded-lg">
+                    <table className="min-w-full divide-y divide-gray-200">
+                      <thead className="bg-gray-50">
+                        <tr>
+                          <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            Status
+                          </th>
+                          <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            Website
+                          </th>
+                          <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            Version
+                          </th>
+                          <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            User
+                          </th>
+                          <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            Created
+                          </th>
+                          <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            Completed
+                          </th>
+                        </tr>
+                      </thead>
+                      <tbody className="bg-white divide-y divide-gray-200">
+                        {deployments.length > 0 ? (
+                          deployments.map((deployment) => (
+                            <tr key={deployment.id}>
+                              <td className="px-6 py-4 whitespace-nowrap">
+                                {renderStatusBadge(deployment.status)}
+                              </td>
+                              <td className="px-6 py-4 whitespace-nowrap">
+                                <div className="text-sm text-gray-900">{deployment.website?.name || 'N/A'}</div>
+                              </td>
+                              <td className="px-6 py-4 whitespace-nowrap">
+                                <div className="text-sm text-gray-900">{deployment.version}</div>
+                              </td>
+                              <td className="px-6 py-4 whitespace-nowrap">
+                                <div className="text-sm text-gray-900">{`${deployment.user.firstName} ${deployment.user.lastName}`}</div>
+                              </td>
+                              <td className="px-6 py-4 whitespace-nowrap">
+                                <div className="text-sm text-gray-900">{formatDate(deployment.createdAt)}</div>
+                              </td>
+                              <td className="px-6 py-4 whitespace-nowrap">
+                                <div className="text-sm text-gray-900">{formatDate(deployment.completedAt)}</div>
+                              </td>
+                            </tr>
+                          ))
+                        ) : (
+                          <tr>
+                            <td colSpan={6} className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 text-center">
+                              No deployments found
+                            </td>
+                          </tr>
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              </div>
+              {deploymentsPagination.totalPages > 0 && (
+                renderPagination(deploymentsPagination, handleDeploymentsPageChange, "Deployment pagination")
               )}
-            </tbody>
-          </Table>
-        </Tab>
+            </div>
+          )}
 
-        <Tab eventKey="websites" title="Websites">
-          <Table striped bordered hover responsive>
-            <thead>
-              <tr>
-                <th>Name</th>
-                <th>Status</th>
-                <th>User</th>
-                <th>Created</th>
-                <th>Last Published</th>
-              </tr>
-            </thead>
-            <tbody>
-              {websites.map((website) => (
-                <tr key={website.id}>
-                  <td>{website.name}</td>
-                  <td>{renderStatusBadge(website.status)}</td>
-                  <td>{`${website.user.firstName} ${website.user.lastName}`}</td>
-                  <td>{formatDate(website.createdAt)}</td>
-                  <td>{formatDate(website.lastPublishedAt)}</td>
-                </tr>
-              ))}
-              {websites.length === 0 && (
-                <tr>
-                  <td colSpan={5} className="text-center">No websites found</td>
-                </tr>
+          {activeTab === 'domains' && (
+            <div className="flex flex-col">
+              <div className="-my-2 overflow-x-auto sm:-mx-6 lg:-mx-8">
+                <div className="py-2 align-middle inline-block min-w-full sm:px-6 lg:px-8">
+                  <div className="shadow overflow-hidden border-b border-gray-200 sm:rounded-lg">
+                    <table className="min-w-full divide-y divide-gray-200">
+                      <thead className="bg-gray-50">
+                        <tr>
+                          <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            Domain Name
+                          </th>
+                          <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            Status
+                          </th>
+                          <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            Verification
+                          </th>
+                          <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            Primary
+                          </th>
+                          <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            Website
+                          </th>
+                          <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            Created
+                          </th>
+                        </tr>
+                      </thead>
+                      <tbody className="bg-white divide-y divide-gray-200">
+                        {domains.length > 0 ? (
+                          domains.map((domain) => (
+                            <tr key={domain.id}>
+                              <td className="px-6 py-4 whitespace-nowrap">
+                                <div className="text-sm font-medium text-gray-900">{domain.name}</div>
+                              </td>
+                              <td className="px-6 py-4 whitespace-nowrap">
+                                {renderStatusBadge(domain.status)}
+                              </td>
+                              <td className="px-6 py-4 whitespace-nowrap">
+                                {renderStatusBadge(domain.verificationStatus)}
+                              </td>
+                              <td className="px-6 py-4 whitespace-nowrap">
+                                <div className="text-sm text-gray-900">
+                                  {domain.isPrimary ? (
+                                    <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                                      Yes
+                                    </span>
+                                  ) : 'No'}
+                                </div>
+                              </td>
+                              <td className="px-6 py-4 whitespace-nowrap">
+                                <div className="text-sm text-gray-900">{domain.website?.name || 'N/A'}</div>
+                              </td>
+                              <td className="px-6 py-4 whitespace-nowrap">
+                                <div className="text-sm text-gray-900">{formatDate(domain.createdAt)}</div>
+                              </td>
+                            </tr>
+                          ))
+                        ) : (
+                          <tr>
+                            <td colSpan={6} className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 text-center">
+                              No domains found
+                            </td>
+                          </tr>
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              </div>
+              {domainsPagination.totalPages > 0 && (
+                renderPagination(domainsPagination, handleDomainsPageChange, "Domain pagination")
               )}
-            </tbody>
-          </Table>
-          <Pagination>
-            <Pagination.First 
-              onClick={() => handleWebsitesPageChange(1)} 
-              disabled={websitesPagination.currentPage === 1}
-            />
-            <Pagination.Prev 
-              onClick={() => handleWebsitesPageChange(websitesPagination.currentPage - 1)} 
-              disabled={websitesPagination.currentPage === 1}
-            />
-            
-            {[...Array(websitesPagination.totalPages)].map((_, i) => (
-              <Pagination.Item 
-                key={i + 1} 
-                active={i + 1 === websitesPagination.currentPage}
-                onClick={() => handleWebsitesPageChange(i + 1)}
-              >
-                {i + 1}
-              </Pagination.Item>
-            ))}
-            
-            <Pagination.Next 
-              onClick={() => handleWebsitesPageChange(websitesPagination.currentPage + 1)} 
-              disabled={websitesPagination.currentPage === websitesPagination.totalPages}
-            />
-            <Pagination.Last 
-              onClick={() => handleWebsitesPageChange(websitesPagination.totalPages)} 
-              disabled={websitesPagination.currentPage === websitesPagination.totalPages}
-            />
-          </Pagination>
-        </Tab>
-
-        <Tab eventKey="deployments" title="Deployments">
-          <Table striped bordered hover responsive>
-            <thead>
-              <tr>
-                <th>Status</th>
-                <th>Website</th>
-                <th>Version</th>
-                <th>User</th>
-                <th>Created</th>
-                <th>Completed</th>
-              </tr>
-            </thead>
-            <tbody>
-              {deployments.map((deployment) => (
-                <tr key={deployment.id}>
-                  <td>{renderStatusBadge(deployment.status)}</td>
-                  <td>{deployment.website?.name || 'N/A'}</td>
-                  <td>{deployment.version}</td>
-                  <td>{`${deployment.user.firstName} ${deployment.user.lastName}`}</td>
-                  <td>{formatDate(deployment.createdAt)}</td>
-                  <td>{formatDate(deployment.completedAt)}</td>
-                </tr>
-              ))}
-              {deployments.length === 0 && (
-                <tr>
-                  <td colSpan={6} className="text-center">No deployments found</td>
-                </tr>
-              )}
-            </tbody>
-          </Table>
-          <Pagination>
-            <Pagination.First 
-              onClick={() => handleDeploymentsPageChange(1)} 
-              disabled={deploymentsPagination.currentPage === 1}
-            />
-            <Pagination.Prev 
-              onClick={() => handleDeploymentsPageChange(deploymentsPagination.currentPage - 1)} 
-              disabled={deploymentsPagination.currentPage === 1}
-            />
-            
-            {[...Array(deploymentsPagination.totalPages)].map((_, i) => (
-              <Pagination.Item 
-                key={i + 1} 
-                active={i + 1 === deploymentsPagination.currentPage}
-                onClick={() => handleDeploymentsPageChange(i + 1)}
-              >
-                {i + 1}
-              </Pagination.Item>
-            ))}
-            
-            <Pagination.Next 
-              onClick={() => handleDeploymentsPageChange(deploymentsPagination.currentPage + 1)} 
-              disabled={deploymentsPagination.currentPage === deploymentsPagination.totalPages}
-            />
-            <Pagination.Last 
-              onClick={() => handleDeploymentsPageChange(deploymentsPagination.totalPages)} 
-              disabled={deploymentsPagination.currentPage === deploymentsPagination.totalPages}
-            />
-          </Pagination>
-        </Tab>
-
-        <Tab eventKey="domains" title="Domains">
-          <Table striped bordered hover responsive>
-            <thead>
-              <tr>
-                <th>Domain Name</th>
-                <th>Status</th>
-                <th>Verification</th>
-                <th>Primary</th>
-                <th>Website</th>
-                <th>Created</th>
-              </tr>
-            </thead>
-            <tbody>
-              {domains.map((domain) => (
-                <tr key={domain.id}>
-                  <td>{domain.name}</td>
-                  <td>{renderStatusBadge(domain.status)}</td>
-                  <td>{renderStatusBadge(domain.verificationStatus)}</td>
-                  <td>{domain.isPrimary ? 'Yes' : 'No'}</td>
-                  <td>{domain.website?.name || 'N/A'}</td>
-                  <td>{formatDate(domain.createdAt)}</td>
-                </tr>
-              ))}
-              {domains.length === 0 && (
-                <tr>
-                  <td colSpan={6} className="text-center">No domains found</td>
-                </tr>
-              )}
-            </tbody>
-          </Table>
-          <Pagination>
-            <Pagination.First 
-              onClick={() => handleDomainsPageChange(1)} 
-              disabled={domainsPagination.currentPage === 1}
-            />
-            <Pagination.Prev 
-              onClick={() => handleDomainsPageChange(domainsPagination.currentPage - 1)} 
-              disabled={domainsPagination.currentPage === 1}
-            />
-            
-            {[...Array(domainsPagination.totalPages)].map((_, i) => (
-              <Pagination.Item 
-                key={i + 1} 
-                active={i + 1 === domainsPagination.currentPage}
-                onClick={() => handleDomainsPageChange(i + 1)}
-              >
-                {i + 1}
-              </Pagination.Item>
-            ))}
-            
-            <Pagination.Next 
-              onClick={() => handleDomainsPageChange(domainsPagination.currentPage + 1)} 
-              disabled={domainsPagination.currentPage === domainsPagination.totalPages}
-            />
-            <Pagination.Last 
-              onClick={() => handleDomainsPageChange(domainsPagination.totalPages)} 
-              disabled={domainsPagination.currentPage === domainsPagination.totalPages}
-            />
-          </Pagination>
-        </Tab>
-      </Tabs>
+            </div>
+          )}
+        </div>
+      </div>
     </div>
   );
 };
