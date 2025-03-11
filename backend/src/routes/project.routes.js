@@ -52,7 +52,31 @@ router.post(
   projectController.publishProject
 );
 
-// Custom domain requires paid subscription
+// Get project deployments
+router.get('/:id/deployments', projectController.getProjectDeployments);
+
+// Get a specific deployment
+router.get('/:id/deployments/:deploymentId', projectController.getProjectDeployment);
+
+// Get project domains
+router.get('/:id/domains', projectController.getProjectDomains);
+
+// Add a custom domain to project (requires paid subscription)
+router.post(
+  '/:id/domains',
+  isPaidUser,
+  [
+    body('name')
+      .isString()
+      .withMessage('Domain name is required')
+      .matches(/^([a-z0-9]+(-[a-z0-9]+)*\.)+[a-z]{2,}$/i)
+      .withMessage('Invalid domain name format'),
+    validate,
+  ],
+  projectController.addProjectDomain
+);
+
+// Custom domain requires paid subscription (legacy route)
 router.post(
   '/:id/custom-domain',
   isPaidUser,
