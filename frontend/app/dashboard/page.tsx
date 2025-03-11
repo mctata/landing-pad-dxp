@@ -1,208 +1,202 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import Link from 'next/link';
-import Image from 'next/image';
 import { useRouter } from 'next/navigation';
-import { useAuth } from '@/lib/auth/auth-context';
-import { DashboardLayout } from '@/components/layout/DashboardLayout';
-import { Button } from '@/components/ui/Button';
-import { api } from '@/lib/api';
-import { formatDate } from '@/lib/utils';
+import { projectAPI } from '@/lib/api';
+import { useProject } from '@/lib/project/project-context';
+import { toast } from 'react-toastify';
 
-interface Website {
+interface Project {
   id: string;
   name: string;
-  url: string;
-  status: 'draft' | 'published';
-  template: string;
-  createdAt: string;
+  description?: string;
   updatedAt: string;
+  published: boolean;
+  publishedUrl?: string;
 }
 
 export default function DashboardPage() {
-  const [websites, setWebsites] = useState<Website[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const { user } = useAuth();
   const router = useRouter();
+  const [isLoading, setIsLoading] = useState(true);
+  const [projects, setProjects] = useState<Project[]>([]);
   
-  // Fetch user websites
   useEffect(() => {
-    const fetchWebsites = async () => {
+    const fetchProjects = async () => {
+      setIsLoading(true);
+      
       try {
-        const response = await api.get('/websites');
-        setWebsites(response.data.websites || []);
+        // Fetch projects from API
+        // const response = await projectAPI.getProjects();
+        // setProjects(response.data.projects);
+        
+        // Mock data for demo
+        setProjects([
+          {
+            id: 'project-1',
+            name: 'My Portfolio',
+            description: 'Personal portfolio website',
+            updatedAt: '2025-03-01T12:00:00Z',
+            published: true,
+            publishedUrl: 'https://portfolio.landingpad.digital',
+          },
+          {
+            id: 'project-2',
+            name: 'Business Website',
+            description: 'Website for my small business',
+            updatedAt: '2025-02-20T10:30:00Z',
+            published: false,
+          },
+          {
+            id: 'project-3',
+            name: 'Landing Page',
+            description: 'Product launch landing page',
+            updatedAt: '2025-01-15T15:45:00Z',
+            published: true,
+            publishedUrl: 'https://product.landingpad.digital',
+          },
+        ]);
       } catch (error) {
-        console.error('Error fetching websites:', error);
+        console.error('Error fetching projects:', error);
+        toast.error('Failed to load your projects');
       } finally {
         setIsLoading(false);
       }
     };
     
-    fetchWebsites();
+    fetchProjects();
   }, []);
   
-  // Demo websites for illustration
-  const demoWebsites: Website[] = [
-    {
-      id: '1',
-      name: 'My Portfolio',
-      url: 'my-portfolio.landingpad.digital',
-      status: 'published',
-      template: 'portfolio',
-      createdAt: '2025-02-15T00:00:00Z',
-      updatedAt: '2025-03-01T00:00:00Z'
-    },
-    {
-      id: '2',
-      name: 'Business Landing Page',
-      url: 'business-landing.landingpad.digital',
-      status: 'draft',
-      template: 'landing',
-      createdAt: '2025-03-05T00:00:00Z',
-      updatedAt: '2025-03-05T00:00:00Z'
-    }
-  ];
+  // Format date for display
+  const formatDate = (dateString: string) => {
+    return new Date(dateString).toLocaleDateString('en-GB', {
+      day: 'numeric',
+      month: 'short',
+      year: 'numeric',
+    });
+  };
   
-  // Use demo websites if no real websites are available
-  const displayWebsites = websites.length > 0 ? websites : demoWebsites;
+  // Handle creating a new project
+  const handleCreateProject = () => {
+    router.push('/dashboard/create');
+  };
   
   return (
-    <DashboardLayout>
-      <div className="py-6">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center mb-8">
-            <h1 className="text-2xl font-semibold text-secondary-900">My Websites</h1>
-            <Button
-              onClick={() => router.push('/dashboard/create')}
-            >
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" viewBox="0 0 20 20" fill="currentColor">
-                <path fillRule="evenodd" d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" clipRule="evenodd" />
-              </svg>
-              Create Website
-            </Button>
+    <div className="min-h-screen bg-secondary-50 py-10 px-4 sm:px-6 lg:px-8">
+      <div className="max-w-7xl mx-auto">
+        <div className="sm:flex sm:items-center sm:justify-between">
+          <div>
+            <h1 className="text-2xl sm:text-3xl font-bold text-secondary-900">My Websites</h1>
+            <p className="mt-1 text-sm text-secondary-500">Manage and edit your websites</p>
           </div>
-          
-          {isLoading ? (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {[1, 2, 3].map((i) => (
-                <div key={i} className="bg-white rounded-lg shadow animate-pulse">
-                  <div className="h-48 bg-secondary-200 rounded-t-lg" />
-                  <div className="p-4 space-y-4">
-                    <div className="h-4 bg-secondary-200 rounded w-3/4"></div>
-                    <div className="h-4 bg-secondary-200 rounded w-1/2"></div>
-                    <div className="flex justify-between">
-                      <div className="h-8 bg-secondary-200 rounded w-1/4"></div>
-                      <div className="h-8 bg-secondary-200 rounded w-1/4"></div>
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          ) : displayWebsites.length === 0 ? (
-            <div className="bg-white rounded-lg shadow p-8 text-center">
-              <div className="mx-auto h-24 w-24 text-secondary-400">
-                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
-                </svg>
-              </div>
-              <h3 className="mt-4 text-lg font-medium text-secondary-900">No websites yet</h3>
-              <p className="mt-2 text-secondary-600">Create your first website to get started.</p>
-              <div className="mt-6">
-                <Button
-                  onClick={() => router.push('/dashboard/create')}
-                >
-                  Create Website
-                </Button>
-              </div>
-            </div>
-          ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {displayWebsites.map((website) => (
-                <div key={website.id} className="bg-white rounded-lg shadow overflow-hidden">
-                  <div className="relative h-48 bg-secondary-100">
-                    {website.template && (
-                      <Image
-                        src={`/images/templates/${website.template}.jpg`}
-                        alt={website.name}
-                        fill
-                        className="object-cover"
-                      />
-                    )}
-                    <div className="absolute top-3 right-3">
-                      <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                        website.status === 'published' 
-                          ? 'bg-success-100 text-success-800' 
-                          : 'bg-secondary-100 text-secondary-800'
-                      }`}>
-                        {website.status === 'published' ? 'Published' : 'Draft'}
-                      </span>
-                    </div>
-                  </div>
-                  
-                  <div className="p-4">
-                    <h3 className="text-lg font-medium text-secondary-900">{website.name}</h3>
-                    <p className="text-sm text-secondary-500 mt-1">
-                      {website.url}
-                    </p>
-                    <p className="text-xs text-secondary-400 mt-1">
-                      Last updated: {formatDate(website.updatedAt)}
-                    </p>
-                    
-                    <div className="mt-4 flex justify-between">
-                      <Link 
-                        href={`/dashboard/editor/${website.id}`}
-                        className="text-primary-600 hover:text-primary-700 text-sm font-medium"
-                      >
-                        Edit
-                      </Link>
-                      
-                      {website.status === 'published' ? (
-                        <a 
-                          href={`https://${website.url}`}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="text-primary-600 hover:text-primary-700 text-sm font-medium"
-                        >
-                          View Site
-                        </a>
-                      ) : (
-                        <Link 
-                          href={`/dashboard/publish/${website.id}`}
-                          className="text-primary-600 hover:text-primary-700 text-sm font-medium"
-                        >
-                          Publish
-                        </Link>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              ))}
-              
-              {/* Create New Website Card */}
-              <div className="bg-white rounded-lg shadow overflow-hidden border-2 border-dashed border-secondary-300 flex flex-col items-center justify-center p-6 h-full">
-                <div className="h-16 w-16 text-secondary-400">
-                  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M12 4v16m8-8H4" />
-                  </svg>
-                </div>
-                <h3 className="mt-4 text-lg font-medium text-secondary-900">Create New Website</h3>
-                <p className="mt-2 text-sm text-secondary-600 text-center">
-                  Start building your next website with our AI-powered tools
-                </p>
-                <div className="mt-6">
-                  <Button
-                    onClick={() => router.push('/dashboard/create')}
-                    variant="outline"
-                  >
-                    Get Started
-                  </Button>
-                </div>
-              </div>
-            </div>
-          )}
+          <div className="mt-4 sm:mt-0">
+            <button
+              type="button"
+              className="px-4 py-2 rounded-md bg-primary-600 text-white font-medium shadow-sm hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2"
+              onClick={handleCreateProject}
+            >
+              Create New Website
+            </button>
+          </div>
         </div>
+        
+        {isLoading ? (
+          <div className="mt-8 flex justify-center">
+            <div className="w-12 h-12 border-4 border-t-primary-500 border-secondary-200 rounded-full animate-spin"></div>
+          </div>
+        ) : projects.length === 0 ? (
+          <div className="mt-12 text-center">
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              className="h-16 w-16 mx-auto text-secondary-400"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={1.5}
+                d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"
+              />
+            </svg>
+            <h2 className="mt-4 text-lg font-medium text-secondary-900">No websites yet</h2>
+            <p className="mt-2 text-secondary-500 max-w-md mx-auto">
+              Get started by creating your first website. Choose from our templates or start from scratch.
+            </p>
+            <button
+              type="button"
+              className="mt-6 px-4 py-2 rounded-md bg-primary-600 text-white font-medium shadow-sm hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2"
+              onClick={handleCreateProject}
+            >
+              Create New Website
+            </button>
+          </div>
+        ) : (
+          <div className="mt-8 bg-white shadow overflow-hidden sm:rounded-md">
+            <ul className="divide-y divide-secondary-200">
+              {projects.map((project) => (
+                <li key={project.id}>
+                  <div className="px-4 py-4 sm:px-6">
+                    <div className="flex items-center justify-between">
+                      <div className="sm:flex sm:items-center">
+                        <p className="text-lg font-medium text-primary-600 truncate">
+                          {project.name}
+                        </p>
+                        <div className="mt-1 sm:mt-0 sm:ml-4">
+                          {project.published ? (
+                            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                              Published
+                            </span>
+                          ) : (
+                            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">
+                              Draft
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                      <div className="ml-2 flex-shrink-0 flex">
+                        <Link 
+                          href={`/dashboard/editor/${project.id}`}
+                          className="mr-2 inline-flex items-center px-2.5 py-1.5 border border-secondary-300 text-xs font-medium rounded text-secondary-700 bg-white hover:bg-secondary-50"
+                        >
+                          Edit
+                        </Link>
+                        
+                        {project.published && (
+                          <a
+                            href={project.publishedUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex items-center px-2.5 py-1.5 border border-transparent text-xs font-medium rounded text-primary-700 bg-primary-100 hover:bg-primary-200"
+                          >
+                            View
+                          </a>
+                        )}
+                      </div>
+                    </div>
+                    <div className="mt-2 sm:flex sm:justify-between">
+                      <div className="sm:flex">
+                        <p className="flex items-center text-sm text-secondary-500">
+                          {project.description || 'No description'}
+                        </p>
+                      </div>
+                      <div className="mt-2 flex items-center text-sm text-secondary-500 sm:mt-0">
+                        <svg className="flex-shrink-0 mr-1.5 h-5 w-5 text-secondary-400" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                          <path fillRule="evenodd" d="M6 2a1 1 0 00-1 1v1H4a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V6a2 2 0 00-2-2h-1V3a1 1 0 10-2 0v1H7V3a1 1 0 00-1-1zm0 5a1 1 0 000 2h8a1 1 0 100-2H6z" clipRule="evenodd" />
+                        </svg>
+                        <p>
+                          Updated on <time dateTime={project.updatedAt}>{formatDate(project.updatedAt)}</time>
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
       </div>
-    </DashboardLayout>
+    </div>
   );
 }
