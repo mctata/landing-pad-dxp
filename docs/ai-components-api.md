@@ -1,455 +1,386 @@
-# AI Components API Documentation
+# AI Components and API Documentation
 
-This document provides comprehensive documentation for the AI Content Generation UI components in the Landing Pad Digital platform.
+This document outlines the AI features of the Landing Pad DXP platform, including both frontend components and backend APIs.
 
-## Table of Contents
-- [Context Provider](#context-provider)
-- [Components](#components)
-  - [AIContentModal](#aicontentmodal)
-  - [AIContentGenerationForm](#aicontentgenerationform)
-  - [AISuggestionPanel](#aisuggestionpanel)
-  - [AISuggestionCard](#aisuggestioncard)
-  - [AIEnhanceToolbar](#aienhancetoolbar)
-  - [AIAssistButton](#aiassistbutton)
-- [Hooks](#hooks)
-  - [useAICache](#useaicache)
-  - [useAIErrorHandling](#useaierrorhandling)
-  - [useAIAnalytics](#useaianalytics)
-- [API Reference](#api-reference)
+## Overview
 
-## Context Provider
+The AI functionality in Landing Pad DXP helps users create and enhance website content through:
 
-The AI functionality is provided through a React Context Provider that manages state, API calls, caching, error handling, and analytics.
+- Content generation for various website elements (headlines, descriptions, features, testimonials)
+- Layout suggestions based on website type and user requirements
+- Style recommendations including color schemes and typography
+- Content enhancement (rewriting, expanding, shortening, proofreading)
+- AI-powered design suggestions and improvements
 
-```tsx
-import { AIProvider, useAI } from '@/lib/ai/ai-context';
+## Environment Requirements
 
-// Wrap your application or section with the provider
-<AIProvider analyticsConfig={{ enabled: true, trackingEndpoint: '/api/analytics/ai' }}>
-  <YourComponent />
-</AIProvider>
+To use the AI features, you need to set up the following environment variables:
 
-// Use the AI functionality in your components
-function YourComponent() {
-  const { 
-    generateContent, 
-    isGeneratingContent,
-    error 
-  } = useAI();
-  
-  // Use the functions as needed
-}
+```
+OPENAI_API_KEY=your_openai_api_key
+OPENAI_MODEL=gpt-3.5-turbo  # or gpt-4 for premium features
 ```
 
-### Provider Props
+## Backend API
 
-| Prop | Type | Description |
-|------|------|-------------|
-| `children` | `ReactNode` | Child components that will have access to the AI context |
-| `analyticsConfig` | `{ enabled: boolean; trackingEndpoint?: string }` | Optional configuration for AI analytics tracking |
-
-### Context Values
-
-| Value | Type | Description |
-|-------|------|-------------|
-| `isGeneratingContent` | `boolean` | Whether content is currently being generated |
-| `isGeneratingSuggestions` | `boolean` | Whether suggestions are currently being generated |
-| `latestContentResult` | `any` | The most recent generated content result |
-| `latestSuggestions` | `any[]` | The most recent generated suggestions |
-| `error` | `{ message: string; isError: boolean; retrying: boolean }` | Current error state |
-| `generateContent` | `(params: any) => Promise<any>` | Function to generate content |
-| `generateSuggestions` | `(websiteId: string, pageId: string, type: string, prompt: string) => Promise<any>` | Function to generate suggestions |
-| `modifyContent` | `(content: string, action: string, parameters?: any) => Promise<any>` | Function to modify existing content |
-| `clearResults` | `() => void` | Function to clear the latest results |
-| `clearError` | `() => void` | Function to clear the current error |
-| `retryLastOperation` | `() => Promise<any>` | Function to retry the last failed operation |
-| `metrics` | `{ contentGenerationCount: number; suggestionGenerationCount: number; ... }` | Analytics metrics |
-
-## Components
-
-### AIContentModal
-
-A modal dialog for generating and previewing AI content before applying it.
-
-```tsx
-import { AIContentModal } from '@/components/ai';
-
-<AIContentModal
-  isOpen={true}
-  onClose={() => setIsOpen(false)}
-  elementType="text"
-  onApplyContent={(content) => handleApplyContent(content)}
-  websiteId="website-123"
-  pageId="page-456"
-/>
-```
-
-#### Props
-
-| Prop | Type | Required | Description |
-|------|------|----------|-------------|
-| `isOpen` | `boolean` | Yes | Whether the modal is open |
-| `onClose` | `() => void` | Yes | Callback when the modal is closed |
-| `elementType` | `string` | Yes | Type of element to generate content for |
-| `onApplyContent` | `(content: any) => void` | Yes | Callback when content is applied |
-| `websiteId` | `string` | No | Website ID for tracking |
-| `pageId` | `string` | No | Page ID for tracking |
-
-### AIContentGenerationForm
-
-Form component for submitting AI content generation requests.
-
-```tsx
-import { AIContentGenerationForm } from '@/components/ai';
-
-<AIContentGenerationForm
-  onGenerate={handleGenerate}
-  isLoading={isLoading}
-  elementType="hero"
-/>
-```
-
-#### Props
-
-| Prop | Type | Required | Description |
-|------|------|----------|-------------|
-| `onGenerate` | `(formData: any) => void` | Yes | Callback with form data when generating content |
-| `isLoading` | `boolean` | Yes | Whether content is currently being generated |
-| `elementType` | `string` | Yes | Type of element to generate content for |
-
-### AISuggestionPanel
-
-Panel that displays AI content suggestions based on user criteria.
-
-```tsx
-import { AISuggestionPanel } from '@/components/ai';
-
-<AISuggestionPanel
-  isOpen={true}
-  onClose={() => setIsOpen(false)}
-  websiteId="website-123"
-  pageId="page-456"
-  onApplySuggestion={(suggestion) => handleApplySuggestion(suggestion)}
-/>
-```
-
-#### Props
-
-| Prop | Type | Required | Description |
-|------|------|----------|-------------|
-| `isOpen` | `boolean` | Yes | Whether the panel is open |
-| `onClose` | `() => void` | Yes | Callback when the panel is closed |
-| `websiteId` | `string` | Yes | Website ID for contextual generation |
-| `pageId` | `string` | Yes | Page ID for contextual generation |
-| `onApplySuggestion` | `(suggestion: any) => void` | Yes | Callback when a suggestion is applied |
-
-### AISuggestionCard
-
-Card component for displaying an individual AI suggestion.
-
-```tsx
-import { AISuggestionCard } from '@/components/ai';
-
-<AISuggestionCard
-  suggestion={suggestion}
-  onApply={() => handleApply(suggestion)}
-  websiteId="website-123"
-  pageId="page-456"
-/>
-```
-
-#### Props
-
-| Prop | Type | Required | Description |
-|------|------|----------|-------------|
-| `suggestion` | `{ id: string; type: 'text' \| 'layout' \| 'style'; title: string; content: any }` | Yes | The suggestion data |
-| `onApply` | `() => void` | Yes | Callback when the suggestion is applied |
-| `websiteId` | `string` | No | Website ID for tracking |
-| `pageId` | `string` | No | Page ID for tracking |
-
-### AIEnhanceToolbar
-
-Toolbar for quick AI content enhancement functions.
-
-```tsx
-import { AIEnhanceToolbar } from '@/components/ai';
-
-<AIEnhanceToolbar
-  content="This is some text that needs enhancement."
-  onUpdate={(updatedContent) => setContent(updatedContent)}
-  websiteId="website-123"
-  pageId="page-456"
-/>
-```
-
-#### Props
-
-| Prop | Type | Required | Description |
-|------|------|----------|-------------|
-| `content` | `string` | Yes | The text content to enhance |
-| `onUpdate` | `(updatedContent: string) => void` | Yes | Callback with the enhanced content |
-| `className` | `string` | No | Additional CSS classes |
-| `websiteId` | `string` | No | Website ID for tracking |
-| `pageId` | `string` | No | Page ID for tracking |
-
-### AIAssistButton
-
-Button that triggers AI assistance for specific element types.
-
-```tsx
-import { AIAssistButton } from '@/components/ai';
-
-<AIAssistButton
-  elementType="text"
-  onContentGenerated={(content) => handleContentGenerated(content)}
-  label="Generate with AI"
-/>
-```
-
-#### Props
-
-| Prop | Type | Required | Description |
-|------|------|----------|-------------|
-| `elementType` | `string` | Yes | Type of element to generate content for |
-| `onContentGenerated` | `(content: any) => void` | Yes | Callback when content is generated |
-| `label` | `string` | No | Button label (default: "AI Generate") |
-| `variant` | `"primary" \| "secondary" \| "outline"` | No | Button variant (default: "primary") |
-| `size` | `"sm" \| "md" \| "lg"` | No | Button size (default: "md") |
-| `className` | `string` | No | Additional CSS classes |
-| `websiteId` | `string` | No | Website ID for tracking |
-| `pageId` | `string` | No | Page ID for tracking |
-
-## Hooks
-
-### useAICache
-
-Custom hook for caching AI-generated content and suggestions to reduce redundant API calls.
-
-```tsx
-import { useAICache } from '@/lib/ai/hooks';
-
-function YourComponent() {
-  const {
-    getCachedContent,
-    getCachedSuggestions,
-    cacheContent,
-    cacheSuggestions,
-    clearExpiredCache,
-    clearAllCache
-  } = useAICache(300000); // 5 minutes expiry
-  
-  // Use the cache functions as needed
-}
-```
-
-#### Return Values
-
-| Value | Type | Description |
-|-------|------|-------------|
-| `getCachedContent` | `(params: any) => { hit: boolean; content: any \| null }` | Get cached content if available |
-| `getCachedSuggestions` | `(websiteId: string, pageId: string, type: string, prompt: string) => { hit: boolean; suggestions: any[] \| null }` | Get cached suggestions if available |
-| `cacheContent` | `(params: any, content: any) => void` | Cache generated content |
-| `cacheSuggestions` | `(websiteId: string, pageId: string, type: string, prompt: string, suggestions: any[]) => void` | Cache generated suggestions |
-| `clearExpiredCache` | `() => void` | Clear expired cache entries |
-| `clearAllCache` | `() => void` | Clear all cached data |
-
-### useAIErrorHandling
-
-Custom hook for comprehensive error handling in AI operations.
-
-```tsx
-import { useAIErrorHandling, AIErrorType } from '@/lib/ai/hooks';
-
-function YourComponent() {
-  const {
-    currentError,
-    errorCounts,
-    handleError,
-    clearError,
-    retryOperation,
-    getUserFriendlyErrorMessage
-  } = useAIErrorHandling();
-  
-  // Use the error handling functions as needed
-}
-```
-
-#### Return Values
-
-| Value | Type | Description |
-|-------|------|-------------|
-| `currentError` | `AIError \| null` | Current error information |
-| `errorCounts` | `Record<AIErrorType, number>` | Count of errors by type for analytics |
-| `handleError` | `(error: any) => AIError` | Process and categorize an error |
-| `clearError` | `() => void` | Clear the current error |
-| `retryOperation` | `<T>(operation: () => Promise<T>, retryConfig?: RetryConfig) => Promise<T>` | Retry operation with exponential backoff |
-| `getUserFriendlyErrorMessage` | `(error?: AIError) => string` | Get user-friendly error message |
-
-### useAIAnalytics
-
-Custom hook for tracking AI feature usage and collecting metrics.
-
-```tsx
-import { useAIAnalytics, AIEventType } from '@/lib/ai/hooks';
-
-function YourComponent() {
-  const {
-    trackEvent,
-    startTiming,
-    stopTiming,
-    trackContentGeneration,
-    trackSuggestionGeneration,
-    trackContentModification,
-    trackSuggestionAccepted,
-    trackSuggestionRejected,
-    flushEvents,
-    metrics
-  } = useAIAnalytics({
-    enabled: true,
-    trackingEndpoint: '/api/analytics/ai',
-    batchInterval: 30000,
-    batchSize: 10
-  });
-  
-  // Use the analytics functions as needed
-}
-```
-
-#### Return Values
-
-| Value | Type | Description |
-|-------|------|-------------|
-| `trackEvent` | `(eventData: Omit<AIEventData, 'timestamp'>) => void` | Track a custom AI event |
-| `startTiming` | `(operationId: string) => void` | Start timing an operation |
-| `stopTiming` | `(operationId: string) => number` | Stop timing and get duration |
-| `trackContentGeneration` | `(params: any, duration: number, success: boolean, errorType?: AIErrorType) => void` | Track content generation event |
-| `trackSuggestionGeneration` | `(websiteId: string, pageId: string, type: string, prompt: string, duration: number, count: number, success: boolean, errorType?: AIErrorType) => void` | Track suggestion generation event |
-| `trackContentModification` | `(content: string, action: string, parameters: any, duration: number, success: boolean, errorType?: AIErrorType) => void` | Track content modification event |
-| `trackSuggestionAccepted` | `(suggestionId: string, suggestionType: string, websiteId?: string, pageId?: string) => void` | Track suggestion acceptance |
-| `trackSuggestionRejected` | `(suggestionId: string, suggestionType: string, websiteId?: string, pageId?: string) => void` | Track suggestion rejection |
-| `flushEvents` | `() => Promise<boolean>` | Send events to tracking endpoint |
-| `metrics` | `{ contentGenerationCount: number; suggestionGenerationCount: number; ... }` | Analytics metrics |
-
-## API Reference
-
-The AI components interact with the following backend API endpoints.
+The AI backend API is available under the `/api/ai` namespace and provides the following endpoints:
 
 ### Content Generation
 
-**Endpoint**: `POST /api/ai/generate/content`
+**Endpoint:** `POST /api/ai/generate/content`
 
-**Request Body**:
+Generates content for a specific element type based on user prompts.
+
+**Request:**
 ```json
 {
-  "websiteId": "string",
-  "pageId": "string",
-  "elementType": "string",
-  "prompt": "string",
-  "tone": "string",
-  "length": "string"
+  "websiteId": "website123",
+  "pageId": "page456",
+  "elementType": "hero",
+  "prompt": "Create a hero section for a fitness app",
+  "tone": "motivational",
+  "length": "medium"
 }
 ```
 
-**Response**:
+**Response:**
 ```json
 {
-  // Response structure varies by elementType
-  // Example for "text":
-  "heading": "string",
-  "subheading": "string",
-  "body": "string"
+  "headline": "Transform Your Body, Transform Your Life",
+  "subheadline": "Track workouts, set goals, and achieve your fitness dreams with our all-in-one fitness solution",
+  "ctaText": "Start Your Journey"
+}
+```
+
+### Layout Generation
+
+**Endpoint:** `POST /api/ai/generate/layout`
+
+Generates layout structures for different page types.
+
+**Request:**
+```json
+{
+  "websiteId": "website123",
+  "pageId": "page456",
+  "prompt": "Create a professional services page layout",
+  "pageType": "services"
+}
+```
+
+**Response:**
+```json
+{
+  "structure": {
+    "type": "services",
+    "sections": ["header", "hero", "services", "process", "testimonials", "cta", "footer"],
+    "layout": "single-column",
+    "spacing": "comfortable"
+  },
+  "elements": [
+    {
+      "id": "header-1",
+      "type": "header",
+      "position": "top",
+      "settings": {
+        "logoPosition": "left",
+        "menuItems": ["Services", "About", "Contact", "Blog"],
+        "cta": {
+          "text": "Get Started",
+          "style": "primary"
+        }
+      }
+    },
+    ...
+  ]
+}
+```
+
+### Style Generation
+
+**Endpoint:** `POST /api/ai/generate/style`
+
+Generates style recommendations including colors, typography, and spacing.
+
+**Request:**
+```json
+{
+  "websiteId": "website123",
+  "prompt": "Create a modern tech style with blue as the primary color",
+  "existingColors": {
+    "primary": "#3B82F6"
+  }
+}
+```
+
+**Response:**
+```json
+{
+  "colors": {
+    "primary": "#3B82F6",
+    "secondary": "#1E293B",
+    "accent": "#06B6D4",
+    "background": "#F8FAFC",
+    "text": "#334155",
+    "headings": "#0F172A",
+    "lightBackground": "#F1F5F9",
+    "borders": "#E2E8F0"
+  },
+  "typography": {
+    "headingFont": "Inter",
+    "bodyFont": "Inter",
+    "baseSize": 16,
+    "scaleRatio": 1.2,
+    "lineHeight": 1.6
+  },
+  "spacing": {
+    "base": 16,
+    "scale": 1.5
+  }
+}
+```
+
+### Content Modification
+
+**Endpoint:** `POST /api/ai/modify/content`
+
+Modifies existing content with actions like rewrite, expand, shorten, etc.
+
+**Request:**
+```json
+{
+  "content": "We offer great services that can help your business grow.",
+  "action": "expand",
+  "parameters": {
+    "factor": "2x"
+  }
+}
+```
+
+**Response:**
+```json
+{
+  "content": "We offer comprehensive business solutions designed to accelerate your company's growth trajectory. Our strategic services combine industry best practices with innovative approaches, providing you with the tools and expertise needed to expand your market reach, optimize operations, and boost revenue. By partnering with our dedicated team, you'll gain access to customized strategies that address your specific business challenges and opportunities."
 }
 ```
 
 ### Suggestions
 
-**Endpoint**: `POST /api/ai/suggestions/:websiteId/:pageId`
+**Endpoint:** `POST /api/ai/suggestions/:websiteId/:pageId`
 
-**Request Body**:
+Generates multiple suggestions for text, layout, or style.
+
+**Request:**
 ```json
 {
-  "type": "text|layout|style",
-  "prompt": "string"
+  "type": "text",
+  "prompt": "Suggest headline options for a real estate website"
 }
 ```
 
-**Response**:
+**Response:**
 ```json
 [
   {
-    "id": "string",
-    "type": "text|layout|style",
-    "title": "string",
+    "id": "1",
+    "type": "text",
+    "title": "Professional & Trustworthy",
     "content": {
-      // Content structure varies by type
+      "heading": "Find Your Dream Home With Confidence",
+      "subheading": "Expert agents guiding you through every step of your real estate journey"
+    }
+  },
+  {
+    "id": "2",
+    "type": "text",
+    "title": "Modern & Direct",
+    "content": {
+      "heading": "Your Perfect Property Is Just A Click Away",
+      "subheading": "Discover thousands of listings tailored to your preferences"
+    }
+  },
+  {
+    "id": "3",
+    "type": "text",
+    "title": "Aspirational & Emotional",
+    "content": {
+      "heading": "Where Memories Begin",
+      "subheading": "Turn the key to your future with our premium property selection"
     }
   }
 ]
 ```
 
-### Content Modification
+### Color Scheme Generation
 
-**Endpoint**: `POST /api/ai/modify/content`
+**Endpoint:** `POST /api/ai/generate-color-scheme`
 
-**Request Body**:
+Generates color schemes based on industry, mood, or base color.
+
+**Request:**
 ```json
 {
-  "content": "string",
-  "action": "string",
-  "parameters": {
-    // Optional parameters specific to the action
+  "industry": "healthcare",
+  "mood": "calming"
+}
+```
+
+**Response:**
+```json
+{
+  "primary": "#4FBDBA",
+  "secondary": "#5F7A61",
+  "accent": "#A1E8AF",
+  "background": "#F7F7F7",
+  "text": "#333333",
+  "headings": "#2A5D67",
+  "lightBackground": "#EFF7F6",
+  "borders": "#D7E4E3"
+}
+```
+
+### Font Pairing Generation
+
+**Endpoint:** `POST /api/ai/generate-font-pairings`
+
+Generates harmonious font pairings based on style and industry.
+
+**Request:**
+```json
+{
+  "style": "elegant",
+  "industry": "luxury"
+}
+```
+
+**Response:**
+```json
+[
+  {
+    "heading": "Playfair Display",
+    "body": "Source Sans Pro"
+  },
+  {
+    "heading": "Cormorant Garamond",
+    "body": "Montserrat"
+  },
+  {
+    "heading": "Libre Baskerville",
+    "body": "Raleway"
   }
-}
+]
 ```
 
-**Response**:
-```json
-{
-  "content": "string"
-}
+## Frontend Components
+
+### AIContentForm
+
+A form component for generating content based on user inputs.
+
+```jsx
+import { AIContentForm } from '@/components/ai';
+
+// Usage
+<AIContentForm 
+  websiteId="123"
+  pageId="456"
+  elementType="hero"
+  onContentGenerated={(content) => {
+    // Handle the generated content
+    console.log(content);
+  }}
+/>
 ```
 
-## Error Handling
+### AIStyleGenerator
 
-All components that interact with the AI API include robust error handling. Errors are categorized into the following types:
+A component for generating style recommendations.
 
-- `NETWORK`: Network connection issues
-- `API_UNAVAILABLE`: AI service is temporarily unavailable
-- `INVALID_REQUEST`: The request parameters were invalid
-- `CONTENT_POLICY`: The request violated content policy
-- `RATE_LIMIT`: Rate limit has been exceeded
-- `RESOURCE_EXHAUSTED`: Usage quota has been exhausted
-- `UNKNOWN`: Other unexpected errors
+```jsx
+import { AIStyleGenerator } from '@/components/ai';
 
-Components will display appropriate error messages and provide retry functionality when applicable.
+// Usage
+<AIStyleGenerator
+  websiteId="123"
+  onStyleGenerated={(style) => {
+    // Apply the generated style
+    console.log(style);
+  }}
+/>
+```
 
-## Accessibility
+### AISuggestionPanel
 
-All AI components adhere to WCAG 2.1 AA standards and include the following accessibility features:
+A panel that displays AI-generated suggestions for the current project.
 
-- Proper ARIA roles, states, and properties
-- Keyboard navigation support
-- Focus management in modals and panels
-- Screen reader announcements for dynamic content
-- Sufficient color contrast
-- Loading and error state indicators
+```jsx
+import { AISuggestionPanel } from '@/components/ai';
 
-## Performance Considerations
+// Usage
+<AISuggestionPanel
+  websiteId="123"
+  pageId="456"
+  type="text"
+  onSuggestionSelected={(suggestion) => {
+    // Apply the selected suggestion
+    console.log(suggestion);
+  }}
+/>
+```
 
-To ensure optimal performance:
+### AIContentEditor
 
-1. The AI context uses caching to reduce redundant API calls
-2. Batch processing for analytics events
-3. Throttling and debouncing are applied to user input
-4. Optimistic UI updates are implemented where appropriate
-5. Requests are retried with exponential backoff when failing
+An editor with AI enhancement capabilities for existing content.
+
+```jsx
+import { AIContentEditor } from '@/components/ai';
+
+// Usage
+<AIContentEditor
+  initialContent="Your content here"
+  onContentChanged={(newContent) => {
+    // Handle the updated content
+    console.log(newContent);
+  }}
+/>
+```
 
 ## Best Practices
 
-When using these components, follow these best practices:
+1. **API Usage Limits**
+   - The AI API has rate limits to prevent abuse
+   - Free tier: 20 requests per 15 minutes
+   - Paid tier: 50 requests per 15 minutes
 
-1. Provide clear and specific prompts to get better results
-2. Set appropriate `websiteId` and `pageId` for contextual generation
-3. Implement appropriate error handling and fallbacks
-4. Use the analytics data to improve the AI features over time
-5. Test with real users to gather feedback on AI-generated content quality
+2. **Context Matters**
+   - Provide clear, specific prompts for better results
+   - Include relevant website and industry information in your prompts
+   - Use element-specific prompts for best results
+
+3. **User Guidance**
+   - Always present AI-generated content as suggestions that can be edited
+   - Provide a way for users to regenerate if they're not satisfied
+   - Allow manual editing of all AI-generated content
+
+4. **Testing and Validation**
+   - AI models may occasionally produce unexpected outputs
+   - Implement content validation where appropriate
+   - Consider implementing content moderation for public-facing websites
+
+## Error Handling
+
+The AI API returns standardized error responses:
+
+```json
+{
+  "success": false,
+  "message": "Error message",
+  "error": "Detailed error information"
+}
+```
+
+Common error scenarios:
+- Rate limiting: 429 Too Many Requests
+- Invalid parameters: 400 Bad Request
+- AI service issues: 500 Internal Server Error
+- Authentication/authorization: 401 Unauthorized or 403 Forbidden

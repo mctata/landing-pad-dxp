@@ -1,23 +1,20 @@
 const express = require('express');
 const router = express.Router();
-const aiRoutes = require('./ai');
 const authRoutes = require('./auth.routes');
-const { notFound } = require('../middleware/error');
+const projectRoutes = require('./project.routes');
+const templateRoutes = require('./template.routes');
+const userRoutes = require('./user.routes');
+const aiRoutes = require('./ai.routes');
+const stripeRoutes = require('./stripe.routes');
+const healthRoutes = require('./health.routes');
 
-// Mount routes
-router.use('/auth', authRoutes);
-router.use('/ai', aiRoutes);
-
-// Base route for API
-router.get('/', (req, res) => {
-  res.json({
-    message: 'Landing Pad Digital API',
-    version: '1.0.0',
-    documentation: '/docs/api-reference.md'
-  });
-});
-
-// Add 404 handler for API routes
-router.use(notFound);
+// Mount all route groups
+router.use('/api/auth', authRoutes);
+router.use('/api/projects', projectRoutes);
+router.use('/api/templates', templateRoutes);
+router.use('/api/users', userRoutes);
+router.use('/api/ai', aiRoutes);
+router.use('/api/stripe', stripeRoutes);
+router.use('/api/health', healthRoutes);
 
 module.exports = router;

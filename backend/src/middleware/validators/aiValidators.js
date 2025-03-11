@@ -1,55 +1,151 @@
-const { body, param, validationResult } = require('express-validator');
-const { APIError } = require('../errorHandler');
+const { body, param } = require('express-validator');
 
 /**
- * Middleware to check validation results
+ * Validators for AI-related requests
  */
-const checkValidation = (req, res, next) => {
-  const errors = validationResult(req);
-  if (!errors.isEmpty()) {
-    throw new APIError('Validation error', 400, errors.array());
-  }
-  next();
+const aiValidators = {
+  /**
+   * Validator for content generation
+   */
+  generateContent: [
+    body('elementType')
+      .notEmpty().withMessage('Element type is required')
+      .isString().withMessage('Element type must be a string'),
+    
+    body('prompt')
+      .notEmpty().withMessage('Prompt is required')
+      .isString().withMessage('Prompt must be a string'),
+    
+    body('tone')
+      .optional()
+      .isString().withMessage('Tone must be a string'),
+    
+    body('length')
+      .optional()
+      .isString().withMessage('Length must be a string'),
+    
+    body('websiteId')
+      .optional()
+      .isString().withMessage('Website ID must be a string'),
+    
+    body('pageId')
+      .optional()
+      .isString().withMessage('Page ID must be a string')
+  ],
+
+  /**
+   * Validator for layout generation
+   */
+  generateLayout: [
+    body('websiteId')
+      .notEmpty().withMessage('Website ID is required')
+      .isString().withMessage('Website ID must be a string'),
+    
+    body('pageId')
+      .notEmpty().withMessage('Page ID is required')
+      .isString().withMessage('Page ID must be a string'),
+    
+    body('prompt')
+      .notEmpty().withMessage('Prompt is required')
+      .isString().withMessage('Prompt must be a string'),
+    
+    body('pageType')
+      .optional()
+      .isString().withMessage('Page type must be a string')
+  ],
+
+  /**
+   * Validator for style generation
+   */
+  generateStyle: [
+    body('websiteId')
+      .notEmpty().withMessage('Website ID is required')
+      .isString().withMessage('Website ID must be a string'),
+    
+    body('prompt')
+      .notEmpty().withMessage('Prompt is required')
+      .isString().withMessage('Prompt must be a string'),
+    
+    body('existingColors')
+      .optional()
+      .isObject().withMessage('Existing colors must be an object'),
+    
+    body('existingFonts')
+      .optional()
+      .isObject().withMessage('Existing fonts must be an object')
+  ],
+
+  /**
+   * Validator for content modification
+   */
+  modifyContent: [
+    body('content')
+      .notEmpty().withMessage('Content is required')
+      .isString().withMessage('Content must be a string'),
+    
+    body('action')
+      .notEmpty().withMessage('Action is required')
+      .isString().withMessage('Action must be a string')
+      .isIn(['rewrite', 'expand', 'shorten', 'changeStyle', 'proofread'])
+      .withMessage('Invalid action type'),
+    
+    body('parameters')
+      .optional()
+      .isObject().withMessage('Parameters must be an object')
+  ],
+
+  /**
+   * Validator for suggestions
+   */
+  getSuggestions: [
+    param('websiteId')
+      .notEmpty().withMessage('Website ID is required')
+      .isString().withMessage('Website ID must be a string'),
+    
+    param('pageId')
+      .notEmpty().withMessage('Page ID is required')
+      .isString().withMessage('Page ID must be a string'),
+    
+    body('type')
+      .notEmpty().withMessage('Type is required')
+      .isString().withMessage('Type must be a string')
+      .isIn(['text', 'layout', 'style'])
+      .withMessage('Type must be one of: text, layout, style'),
+    
+    body('prompt')
+      .notEmpty().withMessage('Prompt is required')
+      .isString().withMessage('Prompt must be a string')
+  ],
+
+  /**
+   * Validator for color scheme generation
+   */
+  generateColorScheme: [
+    body('industry')
+      .optional()
+      .isString().withMessage('Industry must be a string'),
+    
+    body('mood')
+      .optional()
+      .isString().withMessage('Mood must be a string'),
+    
+    body('baseColor')
+      .optional()
+      .isString().withMessage('Base color must be a string')
+  ],
+
+  /**
+   * Validator for font pairing generation
+   */
+  generateFontPairings: [
+    body('style')
+      .optional()
+      .isString().withMessage('Style must be a string'),
+    
+    body('industry')
+      .optional()
+      .isString().withMessage('Industry must be a string')
+  ]
 };
 
-/**
- * Validator for content generation
- */
-const validateGenerateContent = [
-  body('websiteId').isString().notEmpty().withMessage('Website ID is required'),
-  body('pageId').isString().notEmpty().withMessage('Page ID is required'),
-  body('elementType').isString().notEmpty().withMessage('Element type is required'),
-  body('prompt').isString().notEmpty().withMessage('Prompt is required'),
-  body('tone').optional().isString(),
-  body('length').optional().isString(),
-  checkValidation
-];
-
-/**
- * Validator for suggestions
- */
-const validateSuggestions = [
-  param('websiteId').isString().notEmpty().withMessage('Website ID is required'),
-  param('pageId').isString().notEmpty().withMessage('Page ID is required'),
-  body('type').isString().notEmpty().withMessage('Type is required')
-    .isIn(['text', 'layout', 'style']).withMessage('Type must be one of: text, layout, style'),
-  body('prompt').isString().notEmpty().withMessage('Prompt is required'),
-  checkValidation
-];
-
-/**
- * Validator for content modification
- */
-const validateModifyContent = [
-  body('content').isString().notEmpty().withMessage('Content is required'),
-  body('action').isString().notEmpty().withMessage('Action is required')
-    .isIn(['rewrite', 'expand', 'shorten', 'changeStyle', 'proofread']).withMessage('Invalid action'),
-  body('parameters').optional().isObject(),
-  checkValidation
-];
-
-module.exports = {
-  validateGenerateContent,
-  validateSuggestions,
-  validateModifyContent
-};
+module.exports = aiValidators;

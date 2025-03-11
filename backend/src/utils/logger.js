@@ -1,49 +1,73 @@
 const winston = require('winston');
 
-// Configure logger with appropriate formats
-const logger = winston.createLogger({
-  level: process.env.LOG_LEVEL || 'info',
-  format: winston.format.combine(
-    winston.format.timestamp({
-      format: 'YYYY-MM-DD HH:mm:ss'
-    }),
-    winston.format.errors({ stack: true }),
-    winston.format.splat(),
-    winston.format.json()
-  ),
-  defaultMeta: { service: 'landing-pad-api' },
-  transports: [
-    // Write to console
-    new winston.transports.Console({
-      format: winston.format.combine(
-        winston.format.colorize(),
-        winston.format.printf(info => {
-          const { timestamp, level, message, ...args } = info;
-          const ts = timestamp.slice(11, 19);
-          return `${ts} [${level}]: ${message} ${Object.keys(args).length ? JSON.stringify(args, null, 2) : ''}`;
-        })
-      )
-    })
-  ]
-});
+// Define log levels
+const levels = {
+  error: 0,
+  warn: 1,
+  info: 2,
+  http: 3,
+  debug: 4,
+};
 
-// Add file transport in production environment
-if (process.env.NODE_ENV === 'production') {
-  logger.add(
-    new winston.transports.File({ 
-      filename: 'logs/error.log', 
-      level: 'error',
-      maxsize: 10485760, // 10MB
-      maxFiles: 5,
-    })
-  );
-  logger.add(
-    new winston.transports.File({ 
-      filename: 'logs/combined.log',
-      maxsize: 10485760, // 10MB
-      maxFiles: 5,
-    })
-  );
-}
+// Define log level based on environment
+const level = () => {
+  const env = process.env.NODE_ENV || 'development';
+  return env === 'development' ? 'debug' : 'warn';
+};
+
+// Define colors for each log level
+const colors = {
+  error: 'red',
+  warn: 'yellow',
+  info: 'green',
+  http: 'magenta',
+  debug: 'white',
+};
+
+// Add colors to winston
+winston.addColors(colors);
+
+// Define format for console output
+const consoleFormat = winston.format.combine(
+  winston.format.timestamp({ format: 'YYYY-MM-DD HH:mm:ss:ms' }),
+  winston.format.colorize({ all: true }),
+  winston.format.printf(
+    (info) => `${info.timestamp} ${info.level}: ${info.message}`,
+  ),
+);
+
+// Define format for file output (without colors)
+const fileFormat = winston.format.combine(
+  winston.format.timestamp({ format: 'YYYY-MM-DD HH:mm:ss:ms' }),
+  winston.format.printf(
+    (info) => `${info.timestamp} ${info.level}: ${info.message}`,
+  ),
+);
+
+// Define transports
+const transports = [
+  // Console transport
+  new winston.transports.Console({
+    format: consoleFormat,
+  }),
+  // Error log file transport
+  new winston.transports.File({
+    filename: 'logs/error.log',
+    level: 'error',
+    format: fileFormat,
+  }),
+  // All logs file transport
+  new winston.transports.File({
+    filename: 'logs/combined.log',
+    format: fileFormat,
+  }),
+];
+
+// Create the logger
+const logger = winston.createLogger({
+  level: level(),
+  levels,
+  transports,
+});
 
 module.exports = logger;

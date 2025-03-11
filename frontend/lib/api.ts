@@ -79,9 +79,49 @@ export const templateAPI = {
 
 // AI API
 export const aiAPI = {
+  // Legacy endpoints
   generateContent: (prompt: string, contentType: string) => api.post('/api/ai/generate-content', { prompt, contentType }),
   generateColorScheme: (data: { industry?: string, mood?: string, baseColor?: string }) => api.post('/api/ai/generate-color-scheme', data),
   generateFontPairings: (data: { style?: string, industry?: string }) => api.post('/api/ai/generate-font-pairings', data),
+  
+  // New enhanced endpoints
+  generateEnhancedContent: (data: { 
+    websiteId: string, 
+    pageId: string, 
+    elementType: string, 
+    prompt: string, 
+    tone?: string, 
+    length?: string 
+  }) => api.post('/api/ai/generate/content', data),
+  
+  generateLayout: (data: { 
+    websiteId: string, 
+    pageId: string, 
+    prompt: string, 
+    pageType?: string 
+  }) => api.post('/api/ai/generate/layout', data),
+  
+  generateStyle: (data: { 
+    websiteId: string, 
+    prompt: string, 
+    existingColors?: any, 
+    existingFonts?: any 
+  }) => api.post('/api/ai/generate/style', data),
+  
+  modifyContent: (data: { 
+    content: string, 
+    action: 'rewrite' | 'expand' | 'shorten' | 'changeStyle' | 'proofread', 
+    parameters?: any 
+  }) => api.post('/api/ai/modify/content', data),
+  
+  getSuggestions: (
+    websiteId: string, 
+    pageId: string, 
+    data: { 
+      type: 'text' | 'layout' | 'style', 
+      prompt: string 
+    }
+  ) => api.post(`/api/ai/suggestions/${websiteId}/${pageId}`, data),
 };
 
 // Subscription API

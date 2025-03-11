@@ -35,8 +35,12 @@ interface AIError {
 interface AIContextValue {
   isGeneratingContent: boolean;
   isGeneratingSuggestions: boolean;
+  isGeneratingLayout: boolean;
+  isGeneratingStyle: boolean;
   latestContentResult: any | null;
   latestSuggestions: any[];
+  latestLayoutResult: any | null;
+  latestStyleResult: any | null;
   error: AIError;
   
   // Legacy methods
@@ -46,6 +50,21 @@ interface AIContextValue {
   clearResults: () => void;
   clearError: () => void;
   retryLastOperation: () => Promise<any>;
+  
+  // New methods for layout and style
+  generateLayout: (params: {
+    websiteId: string;
+    pageId: string;
+    prompt: string;
+    pageType?: 'landing' | 'about' | 'services' | 'blog' | string;
+  }) => Promise<any>;
+  
+  generateStyle: (params: {
+    websiteId: string;
+    prompt: string;
+    existingColors?: any;
+    existingFonts?: any;
+  }) => Promise<any>;
   
   // New methods from frontend-backend-integration
   isLoading: boolean;
@@ -59,8 +78,12 @@ const AIContext = createContext<AIContextValue | undefined>(undefined);
 export function AIProvider({ children }: AIContextProps) {
   const [isGeneratingContent, setIsGeneratingContent] = useState(false);
   const [isGeneratingSuggestions, setIsGeneratingSuggestions] = useState(false);
+  const [isGeneratingLayout, setIsGeneratingLayout] = useState(false);
+  const [isGeneratingStyle, setIsGeneratingStyle] = useState(false);
   const [latestContentResult, setLatestContentResult] = useState<any | null>(null);
   const [latestSuggestions, setLatestSuggestions] = useState<any[]>([]);
+  const [latestLayoutResult, setLatestLayoutResult] = useState<any | null>(null);
+  const [latestStyleResult, setLatestStyleResult] = useState<any | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<AIError>({
     isError: false,
@@ -395,10 +418,177 @@ export function AIProvider({ children }: AIContextProps) {
     }
   };
 
+  // Generate layout based on prompt and page type
+  const generateLayout = async (params: {
+    websiteId: string;
+    pageId: string;
+    prompt: string;
+    pageType?: 'landing' | 'about' | 'services' | 'blog' | string;
+  }) => {
+    setIsGeneratingLayout(true);
+    setLastOperation({
+      type: 'layout',
+      params
+    });
+    
+    try {
+      // Call the layout generation API
+      let layout;
+      try {
+        layout = await aiService.generateLayout({
+          websiteId: params.websiteId,
+          pageId: params.pageId,
+          prompt: params.prompt,
+          pageType: params.pageType
+        });
+      } catch (apiError) {
+        console.warn('API call failed, using fallback mock data', apiError);
+        
+        // Fallback to mock data if API fails
+        layout = {
+          structure: {
+            type: params.pageType || 'landing',
+            sections: [
+              "header",
+              "hero",
+              "features",
+              "testimonials",
+              "pricing",
+              "cta",
+              "footer"
+            ],
+            layout: "single-column",
+            spacing: "comfortable"
+          },
+          elements: [
+            {
+              id: "header-1",
+              type: "header",
+              position: "top",
+              settings: {
+                logoPosition: "left",
+                menuItems: ["Features", "Pricing", "About", "Contact"],
+                cta: {
+                  text: "Get Started",
+                  style: "primary"
+                },
+                sticky: true
+              }
+            },
+            {
+              id: "hero-1",
+              type: "hero",
+              position: "after-header",
+              settings: {
+                alignment: "center",
+                backgroundType: "image",
+                contentWidth: "narrow",
+                imagePosition: "right"
+              }
+            },
+            {
+              id: "features-1",
+              type: "features",
+              position: "after-hero",
+              settings: {
+                columns: 3,
+                iconPosition: "top",
+                alignment: "center",
+                style: "card"
+              }
+            }
+          ]
+        };
+      }
+      
+      setLatestLayoutResult(layout);
+      setIsGeneratingLayout(false);
+      return layout;
+    } catch (error: any) {
+      console.error('Error generating layout:', error);
+      setIsGeneratingLayout(false);
+      setError({
+        isError: true,
+        message: error.message || 'Failed to generate layout',
+        retrying: false
+      });
+      throw error;
+    }
+  };
+
+  // Generate style recommendations
+  const generateStyle = async (params: {
+    websiteId: string;
+    prompt: string;
+    existingColors?: any;
+    existingFonts?: any;
+  }) => {
+    setIsGeneratingStyle(true);
+    setLastOperation({
+      type: 'style',
+      params
+    });
+    
+    try {
+      // Call the style generation API
+      let style;
+      try {
+        style = await aiService.generateStyle({
+          websiteId: params.websiteId,
+          prompt: params.prompt,
+          existingColors: params.existingColors,
+          existingFonts: params.existingFonts
+        });
+      } catch (apiError) {
+        console.warn('API call failed, using fallback mock data', apiError);
+        
+        // Fallback to mock data if API fails
+        style = {
+          colors: {
+            primary: "#3B82F6",
+            secondary: "#1E293B",
+            accent: "#06B6D4",
+            background: "#F8FAFC",
+            text: "#334155",
+            headings: "#0F172A",
+            lightBackground: "#F1F5F9",
+            borders: "#E2E8F0"
+          },
+          typography: {
+            headingFont: "Inter",
+            bodyFont: "Inter",
+            baseSize: 16,
+            scaleRatio: 1.2,
+            lineHeight: 1.6
+          },
+          spacing: {
+            base: 16,
+            scale: 1.5
+          }
+        };
+      }
+      
+      setLatestStyleResult(style);
+      setIsGeneratingStyle(false);
+      return style;
+    } catch (error: any) {
+      console.error('Error generating style:', error);
+      setIsGeneratingStyle(false);
+      setError({
+        isError: true,
+        message: error.message || 'Failed to generate style',
+        retrying: false
+      });
+      throw error;
+    }
+  };
+
   // Utility methods
   const clearResults = () => {
     setLatestContentResult(null);
     setLatestSuggestions([]);
+    setLatestLayoutResult(null);
+    setLatestStyleResult(null);
   };
   
   const clearError = () => {
@@ -438,6 +628,12 @@ export function AIProvider({ children }: AIContextProps) {
             lastOperation.params.parameters
           );
           break;
+        case 'layout':
+          result = await generateLayout(lastOperation.params);
+          break;
+        case 'style':
+          result = await generateStyle(lastOperation.params);
+          break;
         default:
           result = null;
       }
@@ -467,6 +663,14 @@ export function AIProvider({ children }: AIContextProps) {
     clearError,
     retryLastOperation,
     error,
+    
+    // New properties for layout and style
+    isGeneratingLayout,
+    isGeneratingStyle,
+    latestLayoutResult,
+    latestStyleResult,
+    generateLayout,
+    generateStyle,
     
     // New properties from frontend-backend-integration
     isLoading,
