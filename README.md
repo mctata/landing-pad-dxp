@@ -32,6 +32,7 @@ Landing Pad Digital is a modern website builder that leverages AI to make websit
 - npm or yarn
 - PostgreSQL
 - Git
+- Docker and Docker Compose (optional, for containerized development)
 
 ### Installation
 
@@ -40,6 +41,23 @@ Landing Pad Digital is a modern website builder that leverages AI to make websit
    git clone https://github.com/mctata/landing-pad-dxp.git
    cd landing-pad-dxp
    ```
+
+#### Option 1: Using Docker (Recommended)
+
+2. Start the development environment with Docker Compose
+   ```bash
+   # Copy environment configuration
+   cp .env.example .env
+   
+   # Start all services
+   docker-compose -f docker-compose.dev.yml up
+   ```
+
+   This will start:
+   - Frontend server on http://localhost:3000
+   - Backend API on http://localhost:3001
+
+#### Option 2: Manual Setup
 
 2. Install dependencies
    ```bash
@@ -66,6 +84,35 @@ Landing Pad Digital is a modern website builder that leverages AI to make websit
    cd frontend
    npm run dev
    ```
+
+## Deployment
+
+The application uses a Docker-based deployment process with GitHub Actions for CI/CD.
+
+### Deployment Options
+
+1. **GitHub Actions Automated Deployment**
+   
+   Merges to the `main` branch automatically deploy to staging.
+   
+   For manual deployments:
+   - Go to Actions tab in GitHub
+   - Select "Deploy" workflow
+   - Click "Run workflow"
+   - Choose target environment (staging or production)
+
+2. **Manual Docker Deployment**
+
+   ```bash
+   # Build images
+   docker build -t landingpaddxp/backend:latest backend/
+   docker build -t landingpaddxp/frontend:latest frontend/
+   
+   # Deploy using docker-compose
+   docker-compose -f docker-compose.yml up -d
+   ```
+
+For detailed deployment instructions, see the [Deployment Guide](docs/deployment-guide.md).
 
 ## Project Structure
 

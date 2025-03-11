@@ -1,110 +1,192 @@
-# Deployment Guide
+# Deployment Guide for Landing Pad DXP
 
-## Prerequisites
+This guide details the process for deploying the Landing Pad Digital Experience Platform to staging and production environments.
 
-- Vercel account (for frontend hosting)
-- AWS account or similar (for backend hosting)
-- PostgreSQL database (e.g., AWS RDS, Digital Ocean)
-- Domain name (optional for custom domains)
+## Architecture Overview
 
-## Frontend Deployment (Vercel)
+The Landing Pad DXP application consists of:
 
-1. Connect your GitHub repository to Vercel
-2. Configure build settings:
-   - Root directory: `frontend`
-   - Build command: `npm run build`
-   - Output directory: `.next`
-3. Add environment variables:
-   - `NEXT_PUBLIC_API_URL`: Your backend API URL
-   - `NEXT_PUBLIC_UNSPLASH_ACCESS_KEY`: Unsplash API key
-   - Other required environment variables
-4. Deploy the project
+1. **Frontend** - A Next.js application
+2. **Backend** - A Node.js/Express API
+3. **Database** - PostgreSQL database
 
-## Backend Deployment (AWS EC2)
+Both frontend and backend are containerized using Docker and deployed using Docker Swarm for production environments.
 
-1. Launch an EC2 instance:
-   - Ubuntu Server 22.04 LTS
-   - t3.small or larger
-   - Configure security group to allow HTTP/HTTPS traffic
+## Infrastructure
 
-2. SSH into your instance and install dependencies:
-   ```bash
-   sudo apt update
-   sudo apt install -y nodejs npm nginx
+### Environments
+
+- **Development** - Local development environment
+- **Staging** - Pre-production environment for testing
+- **Production** - Live environment
+
+### Deployment Infrastructure
+
+- **Docker** - Container platform
+- **Docker Swarm** - Container orchestration for production
+- **Docker Hub** - Container registry
+- **GitHub Actions** - CI/CD pipeline
+
+## CI/CD Pipeline
+
+The CI/CD pipeline uses GitHub Actions to:
+
+1. Run tests
+2. Build Docker images
+3. Push images to Docker Hub
+4. Deploy to staging or production environments
+
+### Workflow Files
+
+- `.github/workflows/ci.yml` - Continuous Integration workflow
+- `.github/workflows/deploy.yml` - Deployment workflow
+
+## Local Development Setup
+
+### Prerequisites
+
+- Docker and Docker Compose
+- Node.js 18+
+- npm
+
+### Running the Application Locally
+
+1. Clone the repository:
+   ```
+   git clone https://github.com/your-org/landing-pad-dxp.git
+   cd landing-pad-dxp
    ```
 
-3. Clone the repository:
-   ```bash
-   git clone https://github.com/mctata/landing-pad-dxp.git
-   cd landing-pad-dxp/backend
+2. Start the application in development mode:
+   ```
+   docker-compose -f docker-compose.dev.yml up
+   ```
+
+   This will start:
+   - Backend API on http://localhost:3001
+   - Frontend on http://localhost:3000
+
+3. For development without Docker:
+   ```
+   # Start backend
+   cd backend
    npm install
-   npm run build
+   npm run dev
+
+   # Start frontend in another terminal
+   cd frontend
+   npm install
+   npm run dev
    ```
 
-4. Set up environment variables:
-   ```bash
-   sudo nano .env
-   # Add your environment variables
+## Manual Deployment
+
+### Staging Deployment
+
+To manually trigger a deployment to staging:
+
+1. Go to the GitHub repository
+2. Navigate to "Actions" tab
+3. Select "Deploy" workflow
+4. Click "Run workflow"
+5. Select "staging" environment
+6. Click "Run workflow"
+
+### Production Deployment
+
+To deploy to production:
+
+1. Go to the GitHub repository
+2. Navigate to "Actions" tab
+3. Select "Deploy" workflow
+4. Click "Run workflow"
+5. Select "production" environment
+6. Click "Run workflow"
+
+## Environment Variables
+
+### Required Secrets for GitHub Actions
+
+- `DOCKER_HUB_USERNAME` - Docker Hub username
+- `DOCKER_HUB_ACCESS_TOKEN` - Docker Hub access token
+- `SSH_PRIVATE_KEY` - SSH key for deployment servers
+- `STAGING_HOST` - Staging server hostname (user@hostname)
+- `PRODUCTION_HOST` - Production server hostname (user@hostname)
+- `DATABASE_URL` - Database connection string
+- `JWT_SECRET` - Secret for JWT authentication
+- `API_KEY` - API key for external services
+- `VERCEL_TOKEN` - (Optional) Vercel token if using Vercel deployment
+- `VERCEL_ORG_ID` - (Optional) Vercel organization ID
+- `VERCEL_PROJECT_ID` - (Optional) Vercel project ID
+
+## Monitoring
+
+The application includes health check endpoints:
+
+- Backend: `/health` and `/api/health/deep`
+- Frontend: `/api/health`
+
+These are used by Docker for container health checks and can also be integrated with monitoring tools.
+
+## Rollback Process
+
+To rollback a deployment:
+
+1. Identify the previous stable version
+2. Run the Deploy workflow with a specific tag:
+   ```
+   # Add a custom tag when running the workflow
+   VERSION=2023.05.10.1425-prod
    ```
 
-5. Set up PM2 for process management:
-   ```bash
-   sudo npm install -g pm2
-   pm2 start dist/main.js --name landing-pad-api
-   pm2 startup
-   pm2 save
+## Maintenance Mode
+
+To enable maintenance mode:
+
+1. SSH into the server
+2. Create a maintenance mode flag:
+   ```
+   touch /var/www/maintenance_mode
    ```
 
-6. Configure Nginx as a reverse proxy:
-   ```bash
-   sudo nano /etc/nginx/sites-available/landing-pad
+3. To disable maintenance mode:
    ```
-   
-   Add the following configuration:
-   ```
-   server {
-       listen 80;
-       server_name api.landingpad.digital;
-       
-       location / {
-           proxy_pass http://localhost:3000;
-           proxy_http_version 1.1;
-           proxy_set_header Upgrade $http_upgrade;
-           proxy_set_header Connection 'upgrade';
-           proxy_set_header Host $host;
-           proxy_cache_bypass $http_upgrade;
-       }
-   }
+   rm /var/www/maintenance_mode
    ```
 
-7. Enable the site and restart Nginx:
-   ```bash
-   sudo ln -s /etc/nginx/sites-available/landing-pad /etc/nginx/sites-enabled/
-   sudo nginx -t
-   sudo systemctl restart nginx
-   ```
+## Troubleshooting
 
-8. Set up SSL with Let's Encrypt:
-   ```bash
-   sudo apt install certbot python3-certbot-nginx
-   sudo certbot --nginx -d api.landingpad.digital
-   ```
+### Common Issues
 
-## Database Setup (AWS RDS)
+1. **Container not starting**: Check logs with `docker logs container_name`
+2. **Database connection issues**: Verify database credentials and network connectivity
+3. **Health check failing**: Verify dependent services are running
 
-1. Create a PostgreSQL instance in RDS
-2. Configure security groups to allow access from your backend server
-3. Connect to the database and run migrations:
-   ```bash
-   cd landing-pad-dxp/backend
-   npm run migration:run
-   ```
+### Checking Logs
 
-## Continuous Deployment
+```
+# View container logs
+docker logs landing-pad-backend-production
 
-The repository is configured with GitHub Actions workflows for continuous deployment:
+# View stack deployment logs
+docker stack ps landing-pad-production
+```
 
-- Frontend is automatically deployed to Vercel
-- Backend requires manual deployment or can be extended to use AWS CodeDeploy
+## Security Considerations
 
-See the `.github/workflows` directory for workflow configurations.
+1. **Secrets Management**: All secrets are stored in GitHub Secrets
+2. **Container Security**: Updates are regularly applied to base images
+3. **Network Security**: Internal services are not exposed publicly
+4. **TLS**: All external endpoints use HTTPS
+
+## Backup Strategy
+
+1. **Database**: Daily automated backups
+2. **Configuration**: Infrastructure as code tracked in git
+3. **User Content**: Regular backups to cloud storage
+
+## Contact
+
+For deployment issues, contact the DevOps team:
+- Email: devops@landingpad.digital
+- Slack: #deploy-help

@@ -7,34 +7,88 @@ on:
     branches: [ main, develop ]
 
 jobs:
-  test-frontend:
+  test-and-build:
     runs-on: ubuntu-latest
 
     steps:
     - uses: actions/checkout@v3
-    - name: Use Node.js
+    
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v2
+    
+    - name: Cache Docker layers
+      uses: actions/cache@v3
+      with:
+        path: /tmp/.buildx-cache
+        key: ${{ runner.os }}-buildx-${{ github.sha }}
+        restore-keys: |
+          ${{ runner.os }}-buildx-
+    
+    - name: Create .env file
+      run: |
+        cat > .env << EOF
+        DATABASE_URL=postgres://test:test@localhost:5432/testdb
+        JWT_SECRET=test-jwt-secret-for-ci
+        API_KEY=test-api-key-for-ci
+        EOF
+    
+    - name: Test backend with Docker
+      run: |
+        docker build -t landing-pad-backend-test -f backend/Dockerfile.dev backend
+        docker run --env-file .env --rm landing-pad-backend-test npm test
+    
+    - name: Test frontend with Docker
+      run: |
+        docker build -t landing-pad-frontend-test -f frontend/Dockerfile.dev frontend
+        docker run --rm landing-pad-frontend-test npm test
+    
+    - name: Build backend image
+      uses: docker/build-push-action@v4
+      with:
+        context: ./backend
+        push: false
+        tags: landing-pad-backend:latest
+        cache-from: type=local,src=/tmp/.buildx-cache
+        cache-to: type=local,dest=/tmp/.buildx-cache-new
+    
+    - name: Build frontend image
+      uses: docker/build-push-action@v4
+      with:
+        context: ./frontend
+        push: false
+        tags: landing-pad-frontend:latest
+        cache-from: type=local,src=/tmp/.buildx-cache
+        cache-to: type=local,dest=/tmp/.buildx-cache-new
+    
+    # This is a workaround to prevent cache overflow
+    - name: Move cache
+      run: |
+        rm -rf /tmp/.buildx-cache
+        mv /tmp/.buildx-cache-new /tmp/.buildx-cache
+
+  lint:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v3
+    
+    - name: Setup Node.js
       uses: actions/setup-node@v3
       with:
         node-version: '18.x'
         cache: 'npm'
-        cache-dependency-path: frontend/package-lock.json
-    - name: Install dependencies
+        cache-dependency-path: |
+          frontend/package-lock.json
+          backend/package-lock.json
+    
+    - name: Install frontend dependencies
       run: cd frontend && npm ci
-    - name: Run tests
-      run: cd frontend && npm test
-      
-  test-backend:
-    runs-on: ubuntu-latest
-
-    steps:
-    - uses: actions/checkout@v3
-    - name: Use Node.js
-      uses: actions/setup-node@v3
-      with:
-        node-version: '18.x'
-        cache: 'npm'
-        cache-dependency-path: backend/package-lock.json
-    - name: Install dependencies
+    
+    - name: Lint frontend
+      run: cd frontend && npm run lint
+    
+    - name: Install backend dependencies
       run: cd backend && npm ci
-    - name: Run tests
-      run: cd backend && npm test
+    
+    - name: Lint backend
+      run: cd backend && npm run lint
