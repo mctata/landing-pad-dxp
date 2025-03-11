@@ -1,21 +1,22 @@
 import axios from 'axios';
-import { toast } from 'react-hot-toast';
 
-// Create an axios instance
-export const api = axios.create({
-  baseURL: process.env.API_URL || 'http://localhost:3001/api',
+// API base URL
+const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000';
+
+// Create axios instance
+const api = axios.create({
+  baseURL: API_URL,
   headers: {
     'Content-Type': 'application/json',
   },
 });
 
-// Request interceptor to add auth token
+// Interceptor to add auth token to requests
 api.interceptors.request.use(
   (config) => {
-    // Get token from localStorage
-    const token = localStorage.getItem('token');
+    // Add token from localStorage if available
+    const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
     
-    // If token exists, add to headers
     if (token) {
       config.headers['Authorization'] = `Bearer ${token}`;
     }
@@ -27,104 +28,69 @@ api.interceptors.request.use(
   }
 );
 
-// Response interceptor to handle errors
+// Interceptor to handle auth errors
 api.interceptors.response.use(
   (response) => response,
-  (error) => {
-    const { response } = error;
+  async (error) => {
+    const originalRequest = error.config;
     
-    // Handle different error types
-    if (response) {
-      // Server responded with error status
-      const { status, data } = response;
-      
-      switch (status) {
-        case 401:
-          // Unauthorized - clear token and reload
-          localStorage.removeItem('token');
-          window.location.href = '/auth/login';
-          toast.error('Your session has expired. Please log in again.');
-          break;
-          
-        case 403:
-          // Forbidden
-          toast.error('You don\'t have permission to perform this action.');
-          break;
-          
-        case 404:
-          // Not found
-          toast.error('The requested resource was not found.');
-          break;
-          
-        case 422:
-          // Validation errors
-          if (data.errors) {
-            const errorMessages = Object.values(data.errors).flat();
-            errorMessages.forEach((message: any) => toast.error(String(message)));
-          } else {
-            toast.error(data.message || 'Validation failed.');
-          }
-          break;
-          
-        case 500:
-          // Server error
-          toast.error('Server error. Please try again later.');
-          break;
-          
-        default:
-          // Other errors
-          toast.error(data.message || 'Something went wrong.');
+    // If 401 Unauthorized and not already retrying
+    if (error.response?.status === 401 && !originalRequest._retry) {
+      // Logout user and redirect to login page
+      if (typeof window !== 'undefined') {
+        localStorage.removeItem('token');
+        
+        // If not on login page, redirect to login
+        if (!window.location.pathname.includes('/auth/login')) {
+          window.location.href = `/auth/login?redirectTo=${window.location.pathname}`;
+        }
       }
-    } else {
-      // Network error
-      toast.error('Network error. Please check your connection and try again.');
     }
     
     return Promise.reject(error);
   }
 );
 
-// API helper functions
-export const apiHelpers = {
-  // Generic GET request
-  get: async (url: string, params = {}) => {
-    try {
-      const response = await api.get(url, { params });
-      return response.data;
-    } catch (error) {
-      throw error;
-    }
-  },
-  
-  // Generic POST request
-  post: async (url: string, data = {}) => {
-    try {
-      const response = await api.post(url, data);
-      return response.data;
-    } catch (error) {
-      throw error;
-    }
-  },
-  
-  // Generic PUT request
-  put: async (url: string, data = {}) => {
-    try {
-      const response = await api.put(url, data);
-      return response.data;
-    } catch (error) {
-      throw error;
-    }
-  },
-  
-  // Generic DELETE request
-  delete: async (url: string) => {
-    try {
-      const response = await api.delete(url);
-      return response.data;
-    } catch (error) {
-      throw error;
-    }
-  },
+// Auth API
+export const authAPI = {
+  login: (email: string, password: string) => api.post('/api/auth/login', { email, password }),
+  register: (name: string, email: string, password: string) => api.post('/api/auth/register', { name, email, password }),
+  getCurrentUser: () => api.get('/api/auth/me'),
+  forgotPassword: (email: string) => api.post('/api/auth/forgot-password', { email }),
+  changePassword: (currentPassword: string, newPassword: string) => api.post('/api/auth/change-password', { currentPassword, newPassword }),
 };
 
-export default api;
+// Project API
+export const projectAPI = {
+  getProjects: () => api.get('/api/projects'),
+  getProjectById: (id: string) => api.get(`/api/projects/${id}`),
+  createProject: (data: { name: string, description?: string, templateId: string }) => api.post('/api/projects', data),
+  updateProject: (id: string, data: any) => api.patch(`/api/projects/${id}`, data),
+  deleteProject: (id: string) => api.delete(`/api/projects/${id}`),
+  publishProject: (id: string, customDomain?: string) => api.post(`/api/projects/${id}/publish`, { customDomain }),
+};
+
+// Template API
+export const templateAPI = {
+  getTemplates: () => api.get('/api/templates'),
+  getTemplateById: (id: string) => api.get(`/api/templates/${id}`),
+  getTemplatesByCategory: (category: string) => api.get(`/api/templates/category/${category}`),
+};
+
+// AI API
+export const aiAPI = {
+  generateContent: (prompt: string, contentType: string) => api.post('/api/ai/generate-content', { prompt, contentType }),
+  generateColorScheme: (data: { industry?: string, mood?: string, baseColor?: string }) => api.post('/api/ai/generate-color-scheme', data),
+  generateFontPairings: (data: { style?: string, industry?: string }) => api.post('/api/ai/generate-font-pairings', data),
+};
+
+// Subscription API
+export const subscriptionAPI = {
+  getPlans: () => api.get('/api/stripe/plans'),
+  createCheckoutSession: (planId: string) => api.post('/api/stripe/create-checkout-session', { planId }),
+  getCurrentSubscription: () => api.get('/api/stripe/subscription'),
+  cancelSubscription: () => api.post('/api/stripe/subscription/cancel'),
+  resumeSubscription: () => api.post('/api/stripe/subscription/resume'),
+};
+
+export { api };

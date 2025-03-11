@@ -2,13 +2,15 @@
 
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { api } from '../api';
+import { toast } from 'react-toastify';
+import { authAPI } from '../api';
 
 interface User {
   id: string;
   name: string;
   email: string;
-  plan: 'free' | 'pro' | 'enterprise';
+  subscription: 'free' | 'pro' | 'enterprise';
+  role: string;
 }
 
 interface AuthContextType {
@@ -38,7 +40,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           return;
         }
         
-        const response = await api.get('/auth/me');
+        const response = await authAPI.getCurrentUser();
         setUser(response.data.user);
       } catch (error) {
         // Clear token if invalid
@@ -55,7 +57,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const login = async (email: string, password: string) => {
     setIsLoading(true);
     try {
-      const response = await api.post('/auth/login', { email, password });
+      const response = await authAPI.login(email, password);
       
       // Save token
       localStorage.setItem('token', response.data.token);
@@ -63,9 +65,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       // Set user
       setUser(response.data.user);
       
+      // Show success message
+      toast.success('Login successful');
+      
       // Redirect to dashboard
       router.push('/dashboard');
-    } catch (error) {
+    } catch (error: any) {
+      toast.error(error.response?.data?.message || 'Login failed. Please check your credentials.');
       throw error;
     } finally {
       setIsLoading(false);
@@ -76,7 +82,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const signup = async (name: string, email: string, password: string) => {
     setIsLoading(true);
     try {
-      const response = await api.post('/auth/register', { name, email, password });
+      const response = await authAPI.register(name, email, password);
       
       // Save token
       localStorage.setItem('token', response.data.token);
@@ -84,9 +90,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       // Set user
       setUser(response.data.user);
       
+      // Show success message
+      toast.success('Registration successful');
+      
       // Redirect to dashboard
       router.push('/dashboard');
-    } catch (error) {
+    } catch (error: any) {
+      toast.error(error.response?.data?.message || 'Registration failed. Please try again.');
       throw error;
     } finally {
       setIsLoading(false);
@@ -98,17 +108,23 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setIsLoading(true);
     try {
       // Call logout endpoint if needed
-      await api.post('/auth/logout');
-    } catch (error) {
-      // Continue logout even if API call fails
-      console.error('Logout API call failed', error);
-    } finally {
+      // await authAPI.logout();
+      
       // Clear token and user state
       localStorage.removeItem('token');
       setUser(null);
       
+      // Show success message
+      toast.success('Logged out successfully');
+      
       // Redirect to home
       router.push('/');
+    } catch (error) {
+      // Even if API call fails, we still want to clear local state
+      localStorage.removeItem('token');
+      setUser(null);
+      router.push('/');
+    } finally {
       setIsLoading(false);
     }
   };
