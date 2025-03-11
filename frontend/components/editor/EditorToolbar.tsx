@@ -54,6 +54,15 @@ export function EditorToolbar({
     }
   };
   
+  // Toggle AI assistant panel
+  const toggleAIPanel = () => {
+    if (openPanel === 'ai-assistant') {
+      setOpenPanel(null);
+    } else {
+      setOpenPanel('ai-assistant');
+    }
+  };
+  
   // Start editing page name
   const startEditPageName = () => {
     if (currentPage) {
@@ -218,15 +227,18 @@ export function EditorToolbar({
           Settings
         </Button>
         
-        <button
-          type="button"
-          className="h-8 px-3 rounded-md border border-secondary-300 bg-white hover:bg-secondary-50 text-sm font-medium text-secondary-700 flex items-center"
+        <Button
+          size="sm"
+          variant={openPanel === 'ai-assistant' ? 'default' : 'secondary'}
+          onClick={toggleAIPanel}
+          className="relative"
         >
+          <div className="absolute -top-1 -right-1 w-2 h-2 bg-primary-500 rounded-full"></div>
           <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1" viewBox="0 0 20 20" fill="currentColor">
-            <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-8-3a1 1 0 00-.867.5 1 1 0 11-1.731-1A3 3 0 0113 8a3.001 3.001 0 01-2 2.83V11a1 1 0 11-2 0v-1a1 1 0 011-1 1 1 0 100-2zm0 8a1 1 0 100-2 1 1 0 000 2z" clipRule="evenodd" />
+            <path d="M13 6a3 3 0 11-6 0 3 3 0 016 0zM18 8a2 2 0 11-4 0 2 2 0 014 0zM14 15a4 4 0 00-8 0v3h8v-3zM6 8a2 2 0 11-4 0 2 2 0 014 0zM16 18v-3a5.972 5.972 0 00-.75-2.906A3.005 3.005 0 0119 15v3h-3zM4.75 12.094A5.973 5.973 0 004 15v3H1v-3a3 3 0 013.75-2.906z" />
           </svg>
           AI Assistant
-        </button>
+        </Button>
       </div>
       
       {/* Spacer */}

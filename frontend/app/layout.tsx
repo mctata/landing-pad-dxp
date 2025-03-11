@@ -1,28 +1,34 @@
-import './globals.css';
-import { Inter } from 'next/font/google';
-import { Providers } from './providers';
-import { Toaster } from 'react-hot-toast';
+import './globals.css'
+import './styles/accessibility.css'
+import { Inter } from 'next/font/google'
 
-const inter = Inter({ subsets: ['latin'], variable: '--font-inter' });
+const inter = Inter({ subsets: ['latin'] })
 
 export const metadata = {
-  title: 'Landing Pad Digital | AI-Powered Website Builder',
-  description: 'Create beautiful websites in minutes with AI assistance.',
-};
+  title: 'Landing Pad Digital',
+  description: 'AI-powered website builder platform',
+}
 
 export default function RootLayout({
   children,
 }: {
-  children: React.ReactNode;
+  children: React.ReactNode
 }) {
   return (
     <html lang="en">
-      <body className={`${inter.variable} font-sans`}>
-        <Providers>
-          <main>{children}</main>
-          <Toaster position="bottom-right" />
-        </Providers>
+      <head>
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <meta name="theme-color" content="#ffffff" />
+      </head>
+      <body className={inter.className}>
+        {/* Skip to content link for keyboard users */}
+        <a href="#main-content" className="skip-to-content">
+          Skip to content
+        </a>
+        <main id="main-content">
+          {children}
+        </main>
       </body>
     </html>
-  );
+  )
 }

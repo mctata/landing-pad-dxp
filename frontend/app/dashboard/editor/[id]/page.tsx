@@ -8,6 +8,8 @@ import { EditorCanvas } from '@/components/editor/EditorCanvas';
 import { EditorSidebar } from '@/components/editor/EditorSidebar';
 import { EditorToolbar } from '@/components/editor/EditorToolbar';
 import { PageElementsMenu } from '@/components/editor/PageElementsMenu';
+import { AISuggestionPanel, AIContentModal } from '@/components/ai';
+import { AIProvider } from '@/lib/ai/ai-context';
 import { api } from '@/lib/api';
 import { generateId } from '@/lib/utils';
 
@@ -65,6 +67,8 @@ export default function EditorPage({ params }: { params: { id: string } }) {
   const [isSaving, setIsSaving] = useState(false);
   const [openPanel, setOpenPanel] = useState<string | null>(null);
   const [selectedElementId, setSelectedElementId] = useState<string | null>(null);
+  const [isAIContentModalOpen, setIsAIContentModalOpen] = useState(false);
+  const [selectedElementForAI, setSelectedElementForAI] = useState<ElementData | null>(null);
   const router = useRouter();
   
   // Fetch website data
@@ -289,81 +293,196 @@ export default function EditorPage({ params }: { params: { id: string } }) {
     // Auto-save
     setTimeout(handleSave, 500);
   };
+
+  // Handle opening AI content modal for an element
+  const handleOpenAIContentModal = (elementId: string) => {
+    if (!website || !currentPageId) return;
+    
+    // Find current page
+    const pageIndex = website.pages.findIndex(page => page.id === currentPageId);
+    if (pageIndex === -1) return;
+    
+    // Find element
+    const element = website.pages[pageIndex].elements.find(el => el.id === elementId);
+    if (!element) return;
+    
+    setSelectedElementForAI(element);
+    setIsAIContentModalOpen(true);
+  };
+  
+  // Handle applying AI-generated content to an element
+  const handleApplyAIContent = (content: any) => {
+    if (!selectedElementForAI || !website || !currentPageId) return;
+    
+    handleUpdateElement(selectedElementForAI.id, {
+      content: {
+        ...selectedElementForAI.content,
+        ...content,
+      },
+    });
+    
+    toast.success('AI content applied successfully');
+    
+    // Auto-save
+    setTimeout(handleSave, 500);
+  };
+
+  // Handle applying AI suggestion to the page
+  const handleApplySuggestion = (suggestion: any) => {
+    if (!website || !currentPageId) return;
+    
+    // Find current page
+    const pageIndex = website.pages.findIndex(page => page.id === currentPageId);
+    if (pageIndex === -1) return;
+    
+    if (suggestion.type === 'text') {
+      // Create new text element with the suggested content
+      const newElement: ElementData = {
+        id: generateId(),
+        type: 'text',
+        content: {
+          heading: suggestion.content.heading,
+          content: `<p>${suggestion.content.subheading}</p>`,
+        },
+        settings: getDefaultSettingsForElement('text'),
+        position: website.pages[pageIndex].elements.length,
+      };
+      
+      // Add element to page
+      const updatedPages = [...website.pages];
+      updatedPages[pageIndex].elements.push(newElement);
+      
+      // Update website state
+      setWebsite({
+        ...website,
+        pages: updatedPages,
+      });
+      
+      toast.success('AI suggestion applied');
+      
+      // Auto-save
+      setTimeout(handleSave, 500);
+    } else if (suggestion.type === 'layout') {
+      // This would create multiple elements based on the layout suggestion
+      // For simplicity, we'll just show a toast for now
+      toast.success('Layout suggestion would create multiple elements');
+    } else if (suggestion.type === 'style') {
+      // Update website global styles
+      handleUpdateSettings({
+        colors: {
+          ...website.settings.colors,
+          primary: suggestion.content.colors.primary,
+          secondary: suggestion.content.colors.secondary,
+          accent: suggestion.content.colors.accent,
+          background: suggestion.content.colors.background,
+        },
+        fonts: {
+          ...website.settings.fonts,
+          heading: suggestion.content.typography.heading,
+          body: suggestion.content.typography.body,
+        },
+      });
+      
+      toast.success('AI style suggestion applied');
+    }
+  };
   
   // Get current page
   const currentPage = website?.pages.find(page => page.id === currentPageId);
   
   return (
-    <EditorLayout
-      websiteName={website?.name || 'Loading...'}
-      isSaving={isSaving}
-      onSave={handleSave}
-      onPreview={() => window.open(`/preview/${params.id}`, '_blank')}
-      onPublish={() => router.push(`/dashboard/publish/${params.id}`)}
-      onExit={() => router.push('/dashboard')}
-    >
-      {isLoading ? (
-        <div className="flex items-center justify-center h-full">
-          <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary-600"></div>
-        </div>
-      ) : website && currentPage ? (
-        <div className="flex h-full">
-          {/* Elements menu */}
-          <PageElementsMenu 
-            onAddElement={handleAddElement}
-            isOpen={openPanel === 'elements'}
-            onClose={() => setOpenPanel(null)}
-          />
-          
-          {/* Editor canvas */}
-          <div className="flex-1 overflow-auto">
-            <EditorToolbar 
-              websiteId={params.id}
-              pages={website.pages}
-              currentPageId={currentPageId}
-              onPageChange={setCurrentPageId}
-              onAddPage={handleAddPage}
-              openPanel={openPanel}
-              setOpenPanel={setOpenPanel}
+    <AIProvider>
+      <EditorLayout
+        websiteName={website?.name || 'Loading...'}
+        isSaving={isSaving}
+        onSave={handleSave}
+        onPreview={() => window.open(`/preview/${params.id}`, '_blank')}
+        onPublish={() => router.push(`/dashboard/publish/${params.id}`)}
+        onExit={() => router.push('/dashboard')}
+      >
+        {isLoading ? (
+          <div className="flex items-center justify-center h-full">
+            <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary-600"></div>
+          </div>
+        ) : website && currentPage ? (
+          <div className="flex h-full">
+            {/* Elements menu */}
+            <PageElementsMenu 
+              onAddElement={handleAddElement}
+              isOpen={openPanel === 'elements'}
+              onClose={() => setOpenPanel(null)}
             />
             
-            <EditorCanvas 
-              elements={currentPage.elements}
+            {/* Editor canvas */}
+            <div className="flex-1 overflow-auto">
+              <EditorToolbar 
+                websiteId={params.id}
+                pages={website.pages}
+                currentPageId={currentPageId}
+                onPageChange={setCurrentPageId}
+                onAddPage={handleAddPage}
+                openPanel={openPanel}
+                setOpenPanel={setOpenPanel}
+              />
+              
+              <EditorCanvas 
+                elements={currentPage.elements}
+                selectedElementId={selectedElementId}
+                onSelectElement={setSelectedElementId}
+                onUpdateElement={handleUpdateElement}
+                onDeleteElement={handleDeleteElement}
+                onReorderElements={handleReorderElements}
+                settings={website.settings}
+              />
+            </div>
+            
+            {/* Editor sidebar */}
+            <EditorSidebar 
               selectedElementId={selectedElementId}
-              onSelectElement={setSelectedElementId}
-              onUpdateElement={handleUpdateElement}
-              onDeleteElement={handleDeleteElement}
-              onReorderElements={handleReorderElements}
+              elements={currentPage.elements}
               settings={website.settings}
+              onUpdateElement={handleUpdateElement}
+              onUpdateSettings={handleUpdateSettings}
+              isOpen={openPanel === 'element-settings' || openPanel === 'website-settings'}
+              panelType={openPanel === 'element-settings' ? 'element' : 'website'}
+              onClose={() => setOpenPanel(null)}
+              onGenerateAIContent={handleOpenAIContentModal}
             />
+            
+            {/* AI Suggestion Panel */}
+            <AISuggestionPanel 
+              isOpen={openPanel === 'ai-assistant'}
+              onClose={() => setOpenPanel(null)}
+              websiteId={params.id}
+              pageId={currentPageId}
+              onApplySuggestion={handleApplySuggestion}
+            />
+            
+            {/* AI Content Modal */}
+            {selectedElementForAI && (
+              <AIContentModal 
+                isOpen={isAIContentModalOpen}
+                onClose={() => setIsAIContentModalOpen(false)}
+                elementType={selectedElementForAI.type}
+                onApplyContent={handleApplyAIContent}
+              />
+            )}
           </div>
-          
-          {/* Editor sidebar */}
-          <EditorSidebar 
-            selectedElementId={selectedElementId}
-            elements={currentPage.elements}
-            settings={website.settings}
-            onUpdateElement={handleUpdateElement}
-            onUpdateSettings={handleUpdateSettings}
-            isOpen={openPanel === 'element-settings' || openPanel === 'website-settings'}
-            panelType={openPanel === 'element-settings' ? 'element' : 'website'}
-            onClose={() => setOpenPanel(null)}
-          />
-        </div>
-      ) : (
-        <div className="flex items-center justify-center h-full">
-          <div className="text-center">
-            <p className="text-lg text-secondary-600">Website not found</p>
-            <button
-              className="mt-4 btn-primary"
-              onClick={() => router.push('/dashboard')}
-            >
-              Back to Dashboard
-            </button>
+        ) : (
+          <div className="flex items-center justify-center h-full">
+            <div className="text-center">
+              <p className="text-lg text-secondary-600">Website not found</p>
+              <button
+                className="mt-4 btn-primary"
+                onClick={() => router.push('/dashboard')}
+              >
+                Back to Dashboard
+              </button>
+            </div>
           </div>
-        </div>
-      )}
-    </EditorLayout>
+        )}
+      </EditorLayout>
+    </AIProvider>
   );
 }
 
