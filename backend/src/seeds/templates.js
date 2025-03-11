@@ -1,4 +1,5 @@
 const { Template } = require('../models');
+const logger = require('../utils/logger');
 
 // Seed default templates
 const seedTemplates = async () => {
@@ -392,7 +393,7 @@ const seedTemplates = async () => {
     await Template.create(template);
   }
 
-  console.log('Templates seeded successfully');
+  logger.info('Templates seeded successfully');
 };
 
 module.exports = seedTemplates;
