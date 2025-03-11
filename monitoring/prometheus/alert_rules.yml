@@ -1,0 +1,42 @@
+groups:
+  - name: landing-pad-alerts
+    rules:
+      # High Error Rate Alert
+      - alert: HighErrorRate
+        expr: (app_http_errors_total / app_http_requests_total) * 100 > 5
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High error rate detected"
+          description: "Error rate is above 5% for the last 5 minutes"
+
+      # High Memory Usage Alert
+      - alert: HighMemoryUsage
+        expr: app_memory_usage_bytes{type="heapUsed"} / app_memory_usage_bytes{type="heapTotal"} * 100 > 80
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High memory usage detected"
+          description: "Memory usage is above 80% for the last 5 minutes"
+
+      # High CPU Load Alert
+      - alert: HighCPULoad
+        expr: app_cpu_load{interval="1m"} > 0.8
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High CPU load detected"
+          description: "CPU load average (1m) is above 0.8 for the last 5 minutes"
+      
+      # Service Down Alert
+      - alert: ServiceDown
+        expr: up == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Service is down"
+          description: "{{ $labels.job }} service has been down for more than 1 minute"

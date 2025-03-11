@@ -1,0 +1,11 @@
+apiVersion: 1
+
+providers:
+  - name: 'Landing Pad Dashboard'
+    orgId: 1
+    folder: 'Landing Pad Dashboards'
+    type: file
+    disableDeletion: false
+    editable: true
+    options:
+      path: /etc/grafana/provisioning/dashboards
