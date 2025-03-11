@@ -49,6 +49,8 @@ export default function AIAssistButton({
         size={size}
         className={`flex items-center ${className}`}
         onClick={handleOpenModal}
+        aria-label={`Generate AI content for ${elementType}`}
+        aria-haspopup="dialog"
       >
         <svg 
           xmlns="http://www.w3.org/2000/svg" 

@@ -49,11 +49,15 @@ export default function AIEnhanceToolbar({
   ];
 
   return (
-    <div className={`inline-flex flex-wrap gap-1 ${className}`}>
+    <div 
+      className={`inline-flex flex-wrap gap-1 ${className}`}
+      role="toolbar"
+      aria-label="AI text enhancement options"
+    >
       {enhanceOptions.map((option) => (
         <button
           key={option.id}
-          className={`text-xs px-2 py-1 rounded ${
+          className={`text-xs px-2 py-1 rounded focus:outline-none focus:ring-2 focus:ring-primary-500 ${
             isEnhancing && currentAction === option.id
               ? 'bg-primary-100 text-primary-800 border border-primary-200'
               : 'bg-white text-secondary-700 border border-secondary-300 hover:bg-secondary-50'
