@@ -1,0 +1,77 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuites name="jest tests" tests="32" failures="0" errors="0" time="6.083">
+  <testsuite name="PublishWorkflow.test.tsx" errors="0" failures="0" skipped="0" timestamp="2025-03-11T08:13:09" time="2.923" tests="3">
+    <testcase classname="Publishing Workflow Integration" name="displays publish button with correct props" time="0.426">
+    </testcase>
+    <testcase classname="Publishing Workflow Integration" name="displays last published date when provided" time="0.057">
+    </testcase>
+    <testcase classname="Publishing Workflow Integration" name="validates API call for publishing" time="0.028">
+    </testcase>
+  </testsuite>
+  <testsuite name="DeploymentStatus.test.tsx" errors="0" failures="0" skipped="0" timestamp="2025-03-11T08:13:09" time="2.912" tests="7">
+    <testcase classname="DeploymentStatus" name="displays loading state initially" time="0.151">
+    </testcase>
+    <testcase classname="DeploymentStatus" name="displays message when no deployments exist" time="0.108">
+    </testcase>
+    <testcase classname="DeploymentStatus" name="displays list of deployments when they exist" time="0.142">
+    </testcase>
+    <testcase classname="DeploymentStatus" name="displays active deployment section when there is an ongoing deployment" time="0.102">
+    </testcase>
+    <testcase classname="DeploymentStatus" name="shows error message when API call fails" time="0.029">
+    </testcase>
+    <testcase classname="DeploymentStatus" name="polls for updates when there is an active deployment" time="0.021">
+    </testcase>
+    <testcase classname="DeploymentStatus" name="displays failed status badge" time="0.014">
+    </testcase>
+  </testsuite>
+  <testsuite name="PublishButton.test.tsx" errors="0" failures="0" skipped="0" timestamp="2025-03-11T08:13:09" time="3.165" tests="7">
+    <testcase classname="PublishButton" name="renders the publish button" time="0.4">
+    </testcase>
+    <testcase classname="PublishButton" name="displays last published date when provided" time="0.091">
+    </testcase>
+    <testcase classname="PublishButton" name="does not display last published date when not provided" time="0.004">
+    </testcase>
+    <testcase classname="PublishButton" name="applies animation class when isDirty is true" time="0.036">
+    </testcase>
+    <testcase classname="PublishButton" name="does not apply animation class when isDirty is false" time="0.026">
+    </testcase>
+    <testcase classname="PublishButton" name="opens modal when clicked and passes correct props" time="0.075">
+    </testcase>
+    <testcase classname="PublishButton" name="closes modal when close button is clicked" time="0.054">
+    </testcase>
+  </testsuite>
+  <testsuite name="PublishModal.test.tsx" errors="0" failures="0" skipped="0" timestamp="2025-03-11T08:13:09" time="3.013" tests="4">
+    <testcase classname="PublishModal" name="renders nothing when isOpen is false" time="0.164">
+    </testcase>
+    <testcase classname="PublishModal" name="renders confirmation step when isOpen is true" time="0.175">
+    </testcase>
+    <testcase classname="PublishModal" name="displays warning when isDirty is true" time="0.02">
+    </testcase>
+    <testcase classname="PublishModal" name="calls onClose when Cancel button is clicked" time="0.081">
+    </testcase>
+  </testsuite>
+  <testsuite name="DomainConfiguration.test.tsx" errors="0" failures="0" skipped="0" timestamp="2025-03-11T08:13:09" time="3.825" tests="11">
+    <testcase classname="DomainConfiguration" name="displays loading state initially" time="0.241">
+    </testcase>
+    <testcase classname="DomainConfiguration" name="displays message when no domains exist" time="0.073">
+    </testcase>
+    <testcase classname="DomainConfiguration" name="displays list of domains when they exist" time="0.108">
+    </testcase>
+    <testcase classname="DomainConfiguration" name="adds a new domain successfully" time="0.39">
+    </testcase>
+    <testcase classname="DomainConfiguration" name="validates domain format before adding" time="0.178">
+    </testcase>
+    <testcase classname="DomainConfiguration" name="prevents adding duplicate domains" time="0.183">
+    </testcase>
+    <testcase classname="DomainConfiguration" name="removes a domain successfully" time="0.071">
+    </testcase>
+    <testcase classname="DomainConfiguration" name="tests API endpoints for domain operations" time="0.001">
+    </testcase>
+    <testcase classname="DomainConfiguration" name="validates domain DNS record structure" time="0.002">
+    </testcase>
+    <testcase classname="DomainConfiguration" name="tests clipboard functionality" time="0.001">
+    </testcase>
+    <testcase classname="DomainConfiguration" name="handles API errors gracefully" time="0.03">
+    </testcase>
+  </testsuite>
+</testsuites>

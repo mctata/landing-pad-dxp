@@ -72,6 +72,14 @@ export function Header() {
                 >
                   Dashboard
                 </Link>
+                {user?.role === 'admin' && (
+                  <Link 
+                    href="/admin/dashboard" 
+                    className="text-sm font-medium text-primary-600 hover:text-primary-700"
+                  >
+                    Admin
+                  </Link>
+                )}
                 <Link 
                   href="/account" 
                   className="text-sm font-medium bg-secondary-100 px-4 py-2 rounded-md hover:bg-secondary-200 transition-colors"
@@ -160,6 +168,15 @@ export function Header() {
                     >
                       Dashboard
                     </Link>
+                    {user?.role === 'admin' && (
+                      <Link 
+                        href="/admin/dashboard" 
+                        className="text-sm font-medium text-primary-600 hover:text-primary-700"
+                        onClick={() => setIsMobileMenuOpen(false)}
+                      >
+                        Admin Dashboard
+                      </Link>
+                    )}
                     <Link 
                       href="/account" 
                       className="text-sm font-medium bg-secondary-100 px-4 py-2 rounded-md hover:bg-secondary-200 transition-colors"
