@@ -90,7 +90,11 @@ export default function AISuggestionCard({ suggestion, onApply }: AISuggestionCa
   };
 
   return (
-    <div className="border border-secondary-200 rounded-lg p-3 hover:border-primary-300 hover:shadow-sm transition-all duration-150">
+    <div 
+        className="border border-secondary-200 rounded-lg p-3 hover:border-primary-300 hover:shadow-sm transition-all duration-150 focus-within:ring-2 focus-within:ring-primary-500"
+        role="region"
+        aria-label={`${suggestion.type} suggestion: ${suggestion.title}`}
+      >
       <div className="flex justify-between items-start">
         <div>
           <span className="inline-block px-2 py-0.5 rounded-full text-xs uppercase tracking-wider font-medium bg-primary-100 text-primary-800">
@@ -98,7 +102,13 @@ export default function AISuggestionCard({ suggestion, onApply }: AISuggestionCa
           </span>
           <h3 className="text-sm font-medium text-secondary-900 mt-1">{suggestion.title}</h3>
         </div>
-        <Button size="sm" onClick={onApply}>Apply</Button>
+        <Button 
+          size="sm" 
+          onClick={onApply}
+          aria-label={`Apply ${suggestion.title} suggestion`}
+        >
+          Apply
+        </Button>
       </div>
       
       {renderPreview()}
@@ -106,9 +116,11 @@ export default function AISuggestionCard({ suggestion, onApply }: AISuggestionCa
       <div className="flex justify-end mt-2">
         <button
           type="button"
-          className="text-xs text-secondary-500 hover:text-secondary-700 flex items-center"
+          className="text-xs text-secondary-500 hover:text-secondary-700 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-1 rounded px-2 py-1 flex items-center"
           onClick={handleRegenerate}
           disabled={isRegenerating}
+          aria-label={`Regenerate alternative for ${suggestion.title}`}
+          aria-busy={isRegenerating}
         >
           {isRegenerating ? (
             <>
