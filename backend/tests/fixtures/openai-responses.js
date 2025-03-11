@@ -130,5 +130,128 @@ module.exports = {
     proofread: {
       content: "Landing Pad Digital offers a comprehensive website builder platform that empowers users to create, customize, and deploy professional websites with AI assistance. Our intuitive drag-and-drop interface makes website creation accessible to everyone, regardless of technical background."
     }
+  },
+  
+  layoutGeneration: {
+    structure: {
+      type: "landing",
+      sections: [
+        "header",
+        "hero",
+        "features",
+        "testimonials",
+        "pricing",
+        "cta",
+        "footer"
+      ],
+      layout: "single-column",
+      spacing: "comfortable"
+    },
+    elements: [
+      {
+        id: "header-1",
+        type: "header",
+        position: "top",
+        settings: {
+          logoPosition: "left",
+          menuItems: ["Features", "Pricing", "About", "Contact"],
+          cta: {
+            text: "Get Started",
+            style: "primary"
+          },
+          sticky: true
+        }
+      },
+      {
+        id: "hero-1",
+        type: "hero",
+        position: "after-header",
+        settings: {
+          alignment: "center",
+          backgroundType: "image",
+          contentWidth: "narrow",
+          imagePosition: "right"
+        }
+      },
+      {
+        id: "features-1",
+        type: "features",
+        position: "after-hero",
+        settings: {
+          columns: 3,
+          iconPosition: "top",
+          alignment: "center",
+          style: "card"
+        }
+      },
+      {
+        id: "testimonials-1",
+        type: "testimonial",
+        position: "middle",
+        settings: {
+          style: "carousel",
+          background: "light"
+        }
+      },
+      {
+        id: "pricing-1",
+        type: "pricing",
+        position: "before-cta",
+        settings: {
+          columns: 3,
+          featured: 1,
+          style: "card"
+        }
+      },
+      {
+        id: "cta-1",
+        type: "cta",
+        position: "before-footer",
+        settings: {
+          style: "full-width",
+          background: "gradient",
+          alignment: "center"
+        }
+      },
+      {
+        id: "footer-1",
+        type: "footer",
+        position: "bottom",
+        settings: {
+          columns: 4,
+          socialLinks: true,
+          newsletter: true
+        }
+      }
+    ]
+  },
+  
+  styleGeneration: {
+    colors: {
+      primary: "#3B82F6",
+      secondary: "#1E293B",
+      accent: "#06B6D4",
+      background: "#F8FAFC",
+      text: "#334155",
+      headings: "#0F172A",
+      lightBackground: "#F1F5F9",
+      borders: "#E2E8F0"
+    },
+    typography: {
+      headingFont: "Inter",
+      bodyFont: "Inter",
+      baseSize: 16,
+      scaleRatio: 1.2,
+      lineHeight: 1.6
+    },
+    spacing: {
+      base: 16,
+      scale: 1.5
+    },
+    shadows: {
+      small: "0 1px 2px rgba(0, 0, 0, 0.05)",
+      medium: "0 4px 6px rgba(0, 0, 0, 0.05)",
+      large: "0 10px 15px rgba(0, 0, 0, 0.05)"
+    }
   }
 };
