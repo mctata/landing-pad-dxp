@@ -79,7 +79,11 @@ export default function AISuggestionPanel({
   if (!isOpen) return null;
 
   return (
-    <div className="w-96 border-l border-secondary-200 bg-white h-full flex flex-col overflow-hidden">
+    <div 
+      className="w-96 border-l border-secondary-200 bg-white h-full flex flex-col overflow-hidden"
+      role="complementary"
+      aria-label="AI Content Suggestions Panel"
+    >
       <div className="p-4 border-b border-secondary-200 flex justify-between items-center">
         <div className="flex items-center">
           <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-primary-600 mr-2" viewBox="0 0 20 20" fill="currentColor">
@@ -89,8 +93,9 @@ export default function AISuggestionPanel({
         </div>
         <button
           type="button"
-          className="h-8 w-8 rounded-md text-secondary-500 hover:bg-secondary-100 flex items-center justify-center"
+          className="h-8 w-8 rounded-md text-secondary-500 hover:bg-secondary-100 focus:outline-none focus:ring-2 focus:ring-primary-500 flex items-center justify-center"
           onClick={onClose}
+          aria-label="Close suggestions panel"
         >
           <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
             <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
@@ -104,7 +109,7 @@ export default function AISuggestionPanel({
           <button
             key={tab}
             type="button"
-            className={`flex-1 py-2 text-sm font-medium ${
+            className={`flex-1 py-2 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-inset focus:ring-primary-500 ${
               activeTab === tab 
                 ? 'text-primary-600 border-b-2 border-primary-600' 
                 : 'text-secondary-600 hover:text-secondary-900 hover:bg-secondary-50'
@@ -125,6 +130,8 @@ export default function AISuggestionPanel({
             id="ai-prompt"
             rows={3}
             className="w-full px-3 py-2 border border-secondary-300 rounded-md shadow-sm focus:outline-none focus:ring-primary-500 focus:border-primary-500 text-sm"
+            aria-label="AI suggestion prompt"
+            aria-describedby="prompt-description"
             placeholder={`Describe what you want for your ${activeTab === 'text' ? 'content' : activeTab === 'layout' ? 'layout' : 'style'}...`}
             value={prompt}
             onChange={(e) => setPrompt(e.target.value)}
@@ -132,7 +139,7 @@ export default function AISuggestionPanel({
         </div>
         
         <div className="mb-3">
-          <p className="text-xs text-secondary-500 mb-2">Suggested prompts:</p>
+          <p id="prompt-description" className="text-xs text-secondary-500 mb-2">Suggested prompts:</p>
           <div className="flex flex-wrap gap-2">
             {predefinedPrompts[activeTab as keyof typeof predefinedPrompts].slice(0, 3).map((predefinedPrompt, index) => (
               <button
@@ -160,7 +167,11 @@ export default function AISuggestionPanel({
       {/* Suggestions */}
       <div className="flex-1 overflow-y-auto p-4">
         {suggestions.length === 0 ? (
-          <div className="text-center py-8 text-secondary-500">
+          <div 
+            className="text-center py-8 text-secondary-500"
+            aria-live="polite"
+            aria-busy={isGeneratingSuggestions}
+          >
             <svg xmlns="http://www.w3.org/2000/svg" className="h-12 w-12 mx-auto text-secondary-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
             </svg>
@@ -176,8 +187,12 @@ export default function AISuggestionPanel({
             </p>
           </div>
         ) : (
-          <div className="space-y-4">
-            <h4 className="text-sm font-medium text-secondary-900">Suggestions</h4>
+          <div 
+            className="space-y-4"
+            role="region"
+            aria-labelledby="suggestions-heading"
+          >
+            <h4 id="suggestions-heading" className="text-sm font-medium text-secondary-900">Suggestions</h4>
             {suggestions.map((suggestion) => (
               <AISuggestionCard
                 key={suggestion.id}
