@@ -1,16 +1,18 @@
 {
   "name": "landing-pad-dxp-backend",
   "version": "1.0.0",
-  "description": "Backend for Landing Pad Digital Experience Platform",
+  "description": "Backend API for Landing Pad Digital - AI-powered website builder platform",
   "main": "src/index.js",
   "scripts": {
     "start": "node src/index.js",
     "dev": "nodemon src/index.js",
+    "seed": "node src/seeds/index.js",
     "test": "jest --coverage",
     "lint": "eslint ."
   },
   "dependencies": {
     "axios": "^1.6.0",
+    "bcryptjs": "^2.4.3",
     "cors": "^2.8.5",
     "dotenv": "^16.3.1",
     "express": "^4.18.2",
@@ -19,13 +21,18 @@
     "helmet": "^7.1.0",
     "jsonwebtoken": "^9.0.2",
     "morgan": "^1.10.0",
-    "openai": "^4.20.0",
+    "openai": "^4.24.1",
+    "passport": "^0.7.0",
+    "passport-jwt": "^4.0.1",
+    "pg": "^8.11.3",
+    "sequelize": "^6.35.2",
+    "stripe": "^14.10.0",
     "winston": "^3.11.0"
   },
   "devDependencies": {
-    "eslint": "^8.53.0",
+    "eslint": "^8.56.0",
     "jest": "^29.7.0",
-    "nodemon": "^3.0.1",
+    "nodemon": "^3.0.2",
     "supertest": "^6.3.3"
   },
   "engines": {
