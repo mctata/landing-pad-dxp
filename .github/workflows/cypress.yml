@@ -24,10 +24,10 @@ jobs:
         run: npm install
         
       - name: Install backend dependencies
-        run: cd backend && npm install
+        run: cd backend && npm install && npm install pg --no-save
         
       - name: Install frontend dependencies
-        run: cd frontend && npm install
+        run: cd frontend && npm install && npm install next-auth --no-save
         
       - name: Copy test env file to backend
         run: cp .github/workflows/test.env backend/.env
