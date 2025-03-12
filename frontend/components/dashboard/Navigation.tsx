@@ -12,6 +12,7 @@ import {
   UserCircleIcon,
   BuildingStorefrontIcon,
   GlobeAltIcon,
+  DocumentIcon,
 } from '@heroicons/react/24/outline';
 
 export function DashboardNavigation() {
@@ -20,6 +21,7 @@ export function DashboardNavigation() {
   const navigation = [
     { name: 'Dashboard', href: '/dashboard', icon: HomeIcon },
     { name: 'Websites', href: '/dashboard', icon: BuildingStorefrontIcon, current: pathname === '/dashboard' },
+    { name: 'Templates', href: '/dashboard/templates', icon: DocumentIcon, current: pathname?.includes('/dashboard/templates') },
     { name: 'Publishing', href: '/dashboard/publish', icon: RocketLaunchIcon, current: pathname?.includes('/dashboard/publish') },
     { name: 'Domains', href: '/dashboard/domains', icon: GlobeAltIcon, current: pathname?.includes('/dashboard/domains') },
     { name: 'Subscription', href: '/dashboard/subscription', icon: CreditCardIcon, current: pathname?.includes('/dashboard/subscription') },
