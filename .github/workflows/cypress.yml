@@ -14,6 +14,9 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
         
+      - name: Setup PostgreSQL for Cypress
+        run: bash .github/workflows/setup-cypress-db.sh
+        
       - name: Setup Node
         uses: actions/setup-node@v3
         with:
