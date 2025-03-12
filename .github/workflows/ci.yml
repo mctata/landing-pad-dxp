@@ -17,6 +17,9 @@ jobs:
     steps:
     - uses: actions/checkout@v3
     
+    - name: Create test directories
+      run: bash ../.github/workflows/create-test-dirs.sh
+    
     - name: Setup PostgreSQL
       run: bash ../.github/workflows/setup-db.sh
       

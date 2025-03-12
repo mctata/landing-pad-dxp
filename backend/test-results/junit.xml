@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuites name="jest tests" tests="10" failures="0" errors="0" time="0.606">
+  <testsuite name="AI Controller" errors="0" failures="0" skipped="0" timestamp="2025-03-12T03:53:56" time="0.552" tests="10">
+    <testcase classname="AI Controller generateContent should generate content successfully" name="AI Controller generateContent should generate content successfully" time="0.011">
+    </testcase>
+    <testcase classname="AI Controller generateContent should return 400 if validation fails" name="AI Controller generateContent should return 400 if validation fails" time="0.001">
+    </testcase>
+    <testcase classname="AI Controller generateContent should return 500 if service throws an error" name="AI Controller generateContent should return 500 if service throws an error" time="0.001">
+    </testcase>
+    <testcase classname="AI Controller generateLayout should generate layout successfully" name="AI Controller generateLayout should generate layout successfully" time="0.002">
+    </testcase>
+    <testcase classname="AI Controller generateLayout should use default pageType if not provided" name="AI Controller generateLayout should use default pageType if not provided" time="0.001">
+    </testcase>
+    <testcase classname="AI Controller generateStyle should generate style successfully" name="AI Controller generateStyle should generate style successfully" time="0.002">
+    </testcase>
+    <testcase classname="AI Controller modifyContent should modify content successfully" name="AI Controller modifyContent should modify content successfully" time="0.001">
+    </testcase>
+    <testcase classname="AI Controller getSuggestions should get suggestions successfully" name="AI Controller getSuggestions should get suggestions successfully" time="0.001">
+    </testcase>
+    <testcase classname="AI Controller generateColorScheme should generate color scheme successfully" name="AI Controller generateColorScheme should generate color scheme successfully" time="0.002">
+    </testcase>
+    <testcase classname="AI Controller generateFontPairings should generate font pairings successfully" name="AI Controller generateFontPairings should generate font pairings successfully" time="0.001">
+    </testcase>
+  </testsuite>
+</testsuites>
