@@ -23,11 +23,8 @@ jobs:
       - name: Install root dependencies
         run: npm install
         
-      - name: Install backend dependencies
-        run: cd backend && npm install && npm install pg --no-save
-        
-      - name: Install frontend dependencies
-        run: cd frontend && npm install && npm install next-auth --no-save
+      - name: Set up Cypress environment
+        run: bash .github/workflows/setup-cypress.sh
         
       - name: Copy test env file to backend
         run: cp .github/workflows/test.env backend/.env
