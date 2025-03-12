@@ -2,8 +2,6 @@
 
 import React, { useEffect, ErrorInfo, ComponentType } from 'react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { ToastContainer, toast } from 'react-toastify';
-import 'react-toastify/dist/ReactToastify.css';
 import * as Sentry from '@sentry/nextjs';
 
 // Import context providers
@@ -13,6 +11,7 @@ import { TemplateProvider } from '@/lib/template/template-context';
 import { AIProvider } from '@/lib/ai/ai-context';
 import { SubscriptionProvider } from '@/lib/subscription/subscription-context';
 import { trackClientError } from '@/lib/monitoring';
+import { ToastProvider } from '@/components/ui/toast';
 
 // Create a client with error tracking
 const queryClient = new QueryClient({
@@ -128,19 +127,9 @@ export function Providers({ children }: { children: React.ReactNode }) {
             <TemplateProvider>
               <AIProvider>
                 <SubscriptionProvider>
-                  {children}
-                  <ToastContainer
-                    position="top-right"
-                    autoClose={5000}
-                    hideProgressBar={false}
-                    newestOnTop
-                    closeOnClick
-                    rtl={false}
-                    pauseOnFocusLoss
-                    draggable
-                    pauseOnHover
-                    theme="light"
-                  />
+                  <ToastProvider>
+                    {children}
+                  </ToastProvider>
                 </SubscriptionProvider>
               </AIProvider>
             </TemplateProvider>
