@@ -1,491 +1,791 @@
 const adminController = require('../../../src/controllers/adminController');
-const { User, Website, Deployment, Domain } = require('../../../src/models');
-const { APIError } = require('../../../src/middleware/errorHandler');
-const { Op } = require('sequelize');
+const queueService = require('../../../src/services/queueService');
+const deploymentService = require('../../../src/services/deploymentService');
+const domainService = require('../../../src/services/domainService');
+const logger = require('../../../src/utils/logger');
 
-// Mock the models and logger
-jest.mock('../../../src/models', () => ({
-  User: {
-    count: jest.fn(),
-    findAll: jest.fn()
-  },
-  Website: {
-    count: jest.fn(),
-    findAndCountAll: jest.fn(),
-    findByPk: jest.fn()
-  },
-  Deployment: {
-    count: jest.fn(),
-    findAll: jest.fn(),
-    findAndCountAll: jest.fn()
-  },
-  Domain: {
-    count: jest.fn(),
-    findAndCountAll: jest.fn()
-  }
+// Mock the services and other dependencies
+jest.mock('../../../src/services/queueService', () => ({
+  getQueueStats: jest.fn(),
+  getQueueJobs: jest.fn(),
+  getJob: jest.fn(),
+  pauseQueue: jest.fn(),
+  resumeQueue: jest.fn(),
+  cleanQueue: jest.fn()
+}));
+
+jest.mock('../../../src/services/deploymentService', () => ({
+  getDeploymentById: jest.fn(),
+  updateDeployment: jest.fn()
+}));
+
+jest.mock('../../../src/services/domainService', () => ({
+  getDomainById: jest.fn(),
+  updateDomain: jest.fn()
+}));
+
+jest.mock('../../../src/utils/logger', () => ({
+  info: jest.fn(),
+  error: jest.fn(),
+  warn: jest.fn(),
+  debug: jest.fn()
 }));
 
 describe('Admin Controller', () => {
-  let req, res, next;
-
+  let mockReq;
+  let mockRes;
+  
   beforeEach(() => {
     // Reset all mocks
     jest.clearAllMocks();
-
-    // Mock request, response, and next function
-    req = {
-      user: {
-        id: 'admin-user-id',
-        role: 'admin'
-      },
+    
+    // Mock Express request and response
+    mockReq = {
+      params: {},
       query: {},
-      params: {}
+      body: {}
     };
-
-    res = {
+    
+    mockRes = {
       status: jest.fn().mockReturnThis(),
-      json: jest.fn()
+      json: jest.fn(),
+      send: jest.fn()
     };
-
-    next = jest.fn();
   });
-
-  describe('getStats', () => {
-    it('should return statistics for admin dashboard', async () => {
-      // Mock data
-      const userCount = 10;
-      const websiteCount = 25;
-      const deploymentCount = 100;
-      const domainCount = 30;
-      const failedDeployments = 5;
-      const activeDomains = 20;
-      const recentDeployments = [
-        { id: 'deployment-1', status: 'success', website: { name: 'Website 1' }, user: { firstName: 'John' } },
-        { id: 'deployment-2', status: 'failed', website: { name: 'Website 2' }, user: { firstName: 'Jane' } }
-      ];
-
-      // Mock model responses
-      User.count.mockResolvedValue(userCount);
-      Website.count.mockResolvedValue(websiteCount);
-      Deployment.count.mockImplementation(options => {
-        if (options && options.where && options.where.status === 'failed') {
-          return Promise.resolve(failedDeployments);
+  
+  describe('getQueueDashboard', () => {
+    it('should return queue dashboard data', async () => {
+      // Mock queue service responses
+      queueService.getQueueStats.mockImplementation((queue) => {
+        if (queue.name === 'deployments') {
+          return Promise.resolve({
+            active: 2,
+            completed: 10,
+            failed: 3,
+            delayed: 1,
+            waiting: 5
+          });
+        } else if (queue.name === 'domains') {
+          return Promise.resolve({
+            active: 1,
+            completed: 8,
+            failed: 2,
+            delayed: 0,
+            waiting: 3
+          });
         }
-        return Promise.resolve(deploymentCount);
       });
-      Domain.count.mockImplementation(options => {
-        if (options && options.where && options.where.status === 'active') {
-          return Promise.resolve(activeDomains);
+      
+      queueService.getQueueJobs.mockImplementation((queue, states) => {
+        if (queue.name === 'deployments') {
+          return Promise.resolve([
+            { id: 'job-1', name: 'deployments', data: { websiteId: 'website-1' }, state: 'active' },
+            { id: 'job-2', name: 'deployments', data: { websiteId: 'website-2' }, state: 'failed' }
+          ]);
+        } else if (queue.name === 'domains') {
+          return Promise.resolve([
+            { id: 'job-3', name: 'domains', data: { domainId: 'domain-1' }, state: 'active' }
+          ]);
         }
-        return Promise.resolve(domainCount);
       });
-      Deployment.findAll.mockResolvedValue(recentDeployments);
-
+      
       // Call the controller method
-      await adminController.getStats(req, res, next);
-
+      await adminController.getQueueDashboard(mockReq, mockRes);
+      
       // Assertions
-      expect(res.status).toHaveBeenCalledWith(200);
-      expect(res.json).toHaveBeenCalledWith({
-        stats: {
-          users: userCount,
-          websites: websiteCount,
-          deployments: deploymentCount,
-          domains: domainCount,
-          failedDeployments,
-          activeDomains
-        },
-        recentDeployments
-      });
-
-      // Verify model calls
-      expect(User.count).toHaveBeenCalled();
-      expect(Website.count).toHaveBeenCalled();
-      expect(Deployment.count).toHaveBeenCalledTimes(2); // Total count and failed count
-      expect(Domain.count).toHaveBeenCalledTimes(2); // Total count and active count
-      expect(Deployment.findAll).toHaveBeenCalledWith({
-        limit: 10,
-        order: [['createdAt', 'DESC']],
-        include: expect.any(Array)
+      expect(queueService.getQueueStats).toHaveBeenCalledTimes(2);
+      expect(queueService.getQueueJobs).toHaveBeenCalledTimes(2);
+      
+      expect(mockRes.status).toHaveBeenCalledWith(200);
+      expect(mockRes.json).toHaveBeenCalledWith({
+        queues: expect.arrayContaining([
+          expect.objectContaining({
+            name: 'deployments',
+            stats: expect.objectContaining({
+              active: 2,
+              completed: 10
+            }),
+            recentJobs: expect.arrayContaining([
+              expect.objectContaining({ id: 'job-1' })
+            ])
+          }),
+          expect.objectContaining({
+            name: 'domains',
+            stats: expect.objectContaining({
+              active: 1,
+              completed: 8
+            })
+          })
+        ])
       });
     });
-
-    it('should return 403 if user is not an admin', async () => {
-      // Set user role to non-admin
-      req.user.role = 'user';
-
+    
+    it('should handle errors properly', async () => {
+      // Mock service error
+      queueService.getQueueStats.mockRejectedValue(new Error('Service Error'));
+      
       // Call the controller method
-      await adminController.getStats(req, res, next);
-
+      await adminController.getQueueDashboard(mockReq, mockRes);
+      
       // Assertions
-      expect(next).toHaveBeenCalledWith(expect.any(APIError));
-      expect(next.mock.calls[0][0].statusCode).toBe(403);
-      expect(next.mock.calls[0][0].message).toBe('Unauthorized access');
-
-      // None of the model methods should be called
-      expect(User.count).not.toHaveBeenCalled();
-      expect(Website.count).not.toHaveBeenCalled();
-      expect(Deployment.count).not.toHaveBeenCalled();
-      expect(Domain.count).not.toHaveBeenCalled();
-    });
-
-    it('should handle errors', async () => {
-      // Force an error
-      const error = new Error('Database error');
-      User.count.mockRejectedValue(error);
-
-      // Call the controller method
-      await adminController.getStats(req, res, next);
-
-      // Assertions
-      expect(next).toHaveBeenCalledWith(error);
-      expect(res.status).not.toHaveBeenCalled();
-      expect(res.json).not.toHaveBeenCalled();
+      expect(mockRes.status).toHaveBeenCalledWith(500);
+      expect(mockRes.json).toHaveBeenCalledWith({
+        error: 'Failed to fetch queue dashboard data',
+        details: expect.any(String)
+      });
+      
+      expect(logger.error).toHaveBeenCalledWith(expect.stringContaining('Error getting queue dashboard'), expect.any(Error));
     });
   });
-
-  describe('getWebsites', () => {
-    it('should return websites with pagination', async () => {
-      // Mock query parameters
-      req.query = {
-        page: '2',
-        limit: '15',
-        search: 'test',
-        status: 'published'
+  
+  describe('getQueueDetails', () => {
+    it('should return detailed queue information', async () => {
+      // Set up request
+      mockReq.params.queueName = 'deployments';
+      mockReq.query = {
+        type: 'failed',
+        page: '1',
+        limit: '10'
       };
-
-      // Mock data
-      const mockWebsites = [
-        { id: 'website-1', name: 'Test Website 1', user: { firstName: 'John' } },
-        { id: 'website-2', name: 'Test Website 2', user: { firstName: 'Jane' } }
-      ];
-
-      // Mock findAndCountAll response
-      Website.findAndCountAll.mockResolvedValue({
-        count: 30, // Total count of websites matching the query
-        rows: mockWebsites
+      
+      // Mock queue stats
+      queueService.getQueueStats.mockResolvedValue({
+        active: 2,
+        completed: 30,
+        failed: 5,
+        delayed: 0,
+        waiting: 3
       });
-
+      
+      // Mock queue jobs
+      queueService.getQueueJobs.mockResolvedValue([
+        { id: 'job-1', data: { websiteId: 'website-1' }, state: 'failed', reason: 'API error' },
+        { id: 'job-2', data: { websiteId: 'website-2' }, state: 'failed', reason: 'Timeout' }
+      ]);
+      
       // Call the controller method
-      await adminController.getWebsites(req, res, next);
-
+      await adminController.getQueueDetails(mockReq, mockRes);
+      
       // Assertions
-      expect(res.status).toHaveBeenCalledWith(200);
-      expect(res.json).toHaveBeenCalledWith({
-        websites: mockWebsites,
-        pagination: {
-          totalItems: 30,
-          itemsPerPage: 15,
-          currentPage: 2,
-          totalPages: 2 // 30 items with 15 per page = 2 pages
-        }
-      });
-
-      // Verify model calls with correct parameters
-      expect(Website.findAndCountAll).toHaveBeenCalledWith({
-        where: {
-          name: {
-            [Op.iLike]: '%test%'
-          },
-          status: 'published'
-        },
-        limit: 15,
-        offset: 15, // Page 2 with limit 15
-        order: [['updatedAt', 'DESC']],
-        include: expect.any(Array)
+      expect(queueService.getQueueStats).toHaveBeenCalled();
+      expect(queueService.getQueueJobs).toHaveBeenCalledWith(
+        expect.objectContaining({ name: 'deployments' }),
+        ['failed'],
+        0,
+        10
+      );
+      
+      expect(mockRes.status).toHaveBeenCalledWith(200);
+      expect(mockRes.json).toHaveBeenCalledWith({
+        name: 'deployments',
+        stats: expect.objectContaining({
+          active: 2,
+          completed: 30,
+          failed: 5
+        }),
+        jobs: expect.arrayContaining([
+          expect.objectContaining({ id: 'job-1' }),
+          expect.objectContaining({ id: 'job-2' })
+        ]),
+        pagination: expect.objectContaining({
+          page: 1,
+          limit: 10
+        })
       });
     });
-
-    it('should use default pagination parameters if not provided', async () => {
-      // No query parameters provided
-
-      // Mock data
-      const mockWebsites = [
-        { id: 'website-1', name: 'Website 1', user: { firstName: 'John' } },
-        { id: 'website-2', name: 'Website 2', user: { firstName: 'Jane' } }
-      ];
-
-      // Mock findAndCountAll response
-      Website.findAndCountAll.mockResolvedValue({
-        count: 2,
-        rows: mockWebsites
-      });
-
+    
+    it('should handle invalid queue name', async () => {
+      // Set up request with invalid queue name
+      mockReq.params.queueName = 'invalid-queue';
+      
       // Call the controller method
-      await adminController.getWebsites(req, res, next);
-
+      await adminController.getQueueDetails(mockReq, mockRes);
+      
       // Assertions
-      expect(res.status).toHaveBeenCalledWith(200);
-      expect(res.json).toHaveBeenCalledWith({
-        websites: mockWebsites,
-        pagination: {
-          totalItems: 2,
-          itemsPerPage: 10, // Default limit
-          currentPage: 1, // Default page
-          totalPages: 1
-        }
-      });
-
-      // Verify model calls with default parameters
-      expect(Website.findAndCountAll).toHaveBeenCalledWith({
-        where: {}, // No filters
-        limit: 10,
-        offset: 0,
-        order: [['updatedAt', 'DESC']],
-        include: expect.any(Array)
+      expect(mockRes.status).toHaveBeenCalledWith(404);
+      expect(mockRes.json).toHaveBeenCalledWith({
+        error: 'Queue not found',
+        details: expect.any(String)
       });
     });
-
-    it('should return 403 if user is not an admin', async () => {
-      // Set user role to non-admin
-      req.user.role = 'user';
-
+    
+    it('should handle service errors', async () => {
+      // Set up request
+      mockReq.params.queueName = 'deployments';
+      
+      // Mock service error
+      queueService.getQueueStats.mockRejectedValue(new Error('Stats Error'));
+      
       // Call the controller method
-      await adminController.getWebsites(req, res, next);
-
+      await adminController.getQueueDetails(mockReq, mockRes);
+      
       // Assertions
-      expect(next).toHaveBeenCalledWith(expect.any(APIError));
-      expect(next.mock.calls[0][0].statusCode).toBe(403);
-      expect(next.mock.calls[0][0].message).toBe('Unauthorized access');
-
-      // Model method should not be called
-      expect(Website.findAndCountAll).not.toHaveBeenCalled();
-    });
-
-    it('should handle errors', async () => {
-      // Force an error
-      const error = new Error('Database error');
-      Website.findAndCountAll.mockRejectedValue(error);
-
-      // Call the controller method
-      await adminController.getWebsites(req, res, next);
-
-      // Assertions
-      expect(next).toHaveBeenCalledWith(error);
-      expect(res.status).not.toHaveBeenCalled();
-      expect(res.json).not.toHaveBeenCalled();
+      expect(mockRes.status).toHaveBeenCalledWith(500);
+      expect(mockRes.json).toHaveBeenCalledWith({
+        error: 'Failed to fetch queue details',
+        details: expect.any(String)
+      });
     });
   });
-
-  describe('getDeployments', () => {
-    it('should return deployments with pagination', async () => {
-      // Mock query parameters
-      req.query = {
-        page: '2',
-        limit: '15',
-        status: 'success',
-        websiteId: 'website-123'
-      };
-
-      // Mock data
-      const mockDeployments = [
-        { id: 'deployment-1', status: 'success', website: { name: 'Website 1' }, user: { firstName: 'John' } },
-        { id: 'deployment-2', status: 'success', website: { name: 'Website 2' }, user: { firstName: 'Jane' } }
-      ];
-
-      // Mock findAndCountAll response
-      Deployment.findAndCountAll.mockResolvedValue({
-        count: 30, // Total count of deployments matching the query
-        rows: mockDeployments
-      });
-
+  
+  describe('pauseQueue', () => {
+    it('should pause a queue', async () => {
+      // Set up request
+      mockReq.params.queueName = 'deployments';
+      
+      // Mock pause success
+      queueService.pauseQueue.mockResolvedValue(true);
+      
       // Call the controller method
-      await adminController.getDeployments(req, res, next);
-
+      await adminController.pauseQueue(mockReq, mockRes);
+      
       // Assertions
-      expect(res.status).toHaveBeenCalledWith(200);
-      expect(res.json).toHaveBeenCalledWith({
-        deployments: mockDeployments,
-        pagination: {
-          totalItems: 30,
-          itemsPerPage: 15,
-          currentPage: 2,
-          totalPages: 2 // 30 items with 15 per page = 2 pages
-        }
+      expect(queueService.pauseQueue).toHaveBeenCalledWith(
+        expect.objectContaining({ name: 'deployments' })
+      );
+      
+      expect(mockRes.status).toHaveBeenCalledWith(200);
+      expect(mockRes.json).toHaveBeenCalledWith({
+        success: true,
+        message: expect.stringContaining('Queue paused')
       });
-
-      // Verify model calls with correct parameters
-      expect(Deployment.findAndCountAll).toHaveBeenCalledWith({
-        where: {
-          status: 'success',
+    });
+    
+    it('should handle invalid queue name', async () => {
+      // Set up request with invalid queue name
+      mockReq.params.queueName = 'invalid-queue';
+      
+      // Call the controller method
+      await adminController.pauseQueue(mockReq, mockRes);
+      
+      // Assertions
+      expect(mockRes.status).toHaveBeenCalledWith(404);
+      expect(mockRes.json).toHaveBeenCalledWith({
+        error: 'Queue not found',
+        details: expect.any(String)
+      });
+      
+      expect(queueService.pauseQueue).not.toHaveBeenCalled();
+    });
+    
+    it('should handle pause errors', async () => {
+      // Set up request
+      mockReq.params.queueName = 'deployments';
+      
+      // Mock pause error
+      queueService.pauseQueue.mockRejectedValue(new Error('Pause Error'));
+      
+      // Call the controller method
+      await adminController.pauseQueue(mockReq, mockRes);
+      
+      // Assertions
+      expect(mockRes.status).toHaveBeenCalledWith(500);
+      expect(mockRes.json).toHaveBeenCalledWith({
+        error: 'Failed to pause queue',
+        details: expect.any(String)
+      });
+      
+      expect(logger.error).toHaveBeenCalledWith(expect.stringContaining('Error pausing queue'), expect.any(Error));
+    });
+  });
+  
+  describe('resumeQueue', () => {
+    it('should resume a queue', async () => {
+      // Set up request
+      mockReq.params.queueName = 'deployments';
+      
+      // Mock resume success
+      queueService.resumeQueue.mockResolvedValue(true);
+      
+      // Call the controller method
+      await adminController.resumeQueue(mockReq, mockRes);
+      
+      // Assertions
+      expect(queueService.resumeQueue).toHaveBeenCalledWith(
+        expect.objectContaining({ name: 'deployments' })
+      );
+      
+      expect(mockRes.status).toHaveBeenCalledWith(200);
+      expect(mockRes.json).toHaveBeenCalledWith({
+        success: true,
+        message: expect.stringContaining('Queue resumed')
+      });
+    });
+    
+    it('should handle invalid queue name', async () => {
+      // Set up request with invalid queue name
+      mockReq.params.queueName = 'invalid-queue';
+      
+      // Call the controller method
+      await adminController.resumeQueue(mockReq, mockRes);
+      
+      // Assertions
+      expect(mockRes.status).toHaveBeenCalledWith(404);
+      expect(mockRes.json).toHaveBeenCalledWith({
+        error: 'Queue not found',
+        details: expect.any(String)
+      });
+      
+      expect(queueService.resumeQueue).not.toHaveBeenCalled();
+    });
+    
+    it('should handle resume errors', async () => {
+      // Set up request
+      mockReq.params.queueName = 'deployments';
+      
+      // Mock resume error
+      queueService.resumeQueue.mockRejectedValue(new Error('Resume Error'));
+      
+      // Call the controller method
+      await adminController.resumeQueue(mockReq, mockRes);
+      
+      // Assertions
+      expect(mockRes.status).toHaveBeenCalledWith(500);
+      expect(mockRes.json).toHaveBeenCalledWith({
+        error: 'Failed to resume queue',
+        details: expect.any(String)
+      });
+      
+      expect(logger.error).toHaveBeenCalledWith(expect.stringContaining('Error resuming queue'), expect.any(Error));
+    });
+  });
+  
+  describe('getJob', () => {
+    it('should return job details', async () => {
+      // Set up request
+      mockReq.params.queueName = 'deployments';
+      mockReq.params.jobId = 'job-123';
+      
+      // Mock job data
+      const mockJob = {
+        id: 'job-123',
+        data: {
+          deploymentId: 'deployment-123',
           websiteId: 'website-123'
         },
-        limit: 15,
-        offset: 15, // Page 2 with limit 15
-        order: [['createdAt', 'DESC']],
-        include: expect.any(Array)
+        progress: 50,
+        state: 'active',
+        timestamp: Date.now(),
+        attemptsMade: 1
+      };
+      
+      queueService.getJob.mockResolvedValue(mockJob);
+      
+      // Mock deployment data
+      deploymentService.getDeploymentById.mockResolvedValue({
+        id: 'deployment-123',
+        websiteId: 'website-123',
+        status: 'in_progress'
+      });
+      
+      // Call the controller method
+      await adminController.getJob(mockReq, mockRes);
+      
+      // Assertions
+      expect(queueService.getJob).toHaveBeenCalledWith(
+        expect.objectContaining({ name: 'deployments' }),
+        'job-123'
+      );
+      
+      expect(deploymentService.getDeploymentById).toHaveBeenCalledWith('deployment-123');
+      
+      expect(mockRes.status).toHaveBeenCalledWith(200);
+      expect(mockRes.json).toHaveBeenCalledWith({
+        job: expect.objectContaining({
+          id: 'job-123',
+          data: expect.objectContaining({
+            deploymentId: 'deployment-123'
+          })
+        }),
+        relatedEntity: expect.objectContaining({
+          id: 'deployment-123',
+          websiteId: 'website-123'
+        })
       });
     });
-
-    it('should return 403 if user is not an admin', async () => {
-      // Set user role to non-admin
-      req.user.role = 'user';
-
+    
+    it('should handle job not found', async () => {
+      // Set up request
+      mockReq.params.queueName = 'deployments';
+      mockReq.params.jobId = 'non-existent-job';
+      
+      // Mock job not found
+      queueService.getJob.mockResolvedValue(null);
+      
       // Call the controller method
-      await adminController.getDeployments(req, res, next);
-
+      await adminController.getJob(mockReq, mockRes);
+      
       // Assertions
-      expect(next).toHaveBeenCalledWith(expect.any(APIError));
-      expect(next.mock.calls[0][0].statusCode).toBe(403);
-      expect(next.mock.calls[0][0].message).toBe('Unauthorized access');
-
-      // Model method should not be called
-      expect(Deployment.findAndCountAll).not.toHaveBeenCalled();
+      expect(mockRes.status).toHaveBeenCalledWith(404);
+      expect(mockRes.json).toHaveBeenCalledWith({
+        error: 'Job not found',
+        details: expect.any(String)
+      });
+    });
+    
+    it('should handle invalid queue name', async () => {
+      // Set up request with invalid queue name
+      mockReq.params.queueName = 'invalid-queue';
+      mockReq.params.jobId = 'job-123';
+      
+      // Call the controller method
+      await adminController.getJob(mockReq, mockRes);
+      
+      // Assertions
+      expect(mockRes.status).toHaveBeenCalledWith(404);
+      expect(mockRes.json).toHaveBeenCalledWith({
+        error: 'Queue not found',
+        details: expect.any(String)
+      });
+    });
+    
+    it('should handle service errors', async () => {
+      // Set up request
+      mockReq.params.queueName = 'deployments';
+      mockReq.params.jobId = 'job-123';
+      
+      // Mock service error
+      queueService.getJob.mockRejectedValue(new Error('Service Error'));
+      
+      // Call the controller method
+      await adminController.getJob(mockReq, mockRes);
+      
+      // Assertions
+      expect(mockRes.status).toHaveBeenCalledWith(500);
+      expect(mockRes.json).toHaveBeenCalledWith({
+        error: 'Failed to fetch job details',
+        details: expect.any(String)
+      });
+      
+      expect(logger.error).toHaveBeenCalledWith(expect.stringContaining('Error getting job details'), expect.any(Error));
     });
   });
-
-  describe('getDomains', () => {
-    it('should return domains with pagination', async () => {
-      // Mock query parameters
-      req.query = {
-        page: '2',
-        limit: '15',
+  
+  describe('retryDeployment', () => {
+    it('should retry a failed deployment', async () => {
+      // Set up request
+      mockReq.params.deploymentId = 'deployment-123';
+      
+      // Mock deployment data - failed deployment
+      const mockDeployment = {
+        id: 'deployment-123',
+        websiteId: 'website-123',
+        status: 'failed',
+        errorMessage: 'Network error'
+      };
+      
+      deploymentService.getDeploymentById.mockResolvedValue(mockDeployment);
+      deploymentService.updateDeployment.mockImplementation((id, updates) => {
+        return Promise.resolve({
+          ...mockDeployment,
+          ...updates
+        });
+      });
+      
+      // Mock queue service
+      queueService.addToQueue = jest.fn().mockResolvedValue({ id: 'new-job-123' });
+      
+      // Call the controller method
+      await adminController.retryDeployment(mockReq, mockRes);
+      
+      // Assertions
+      expect(deploymentService.getDeploymentById).toHaveBeenCalledWith('deployment-123');
+      expect(deploymentService.updateDeployment).toHaveBeenCalledWith(
+        'deployment-123',
+        expect.objectContaining({
+          status: 'queued',
+          errorMessage: null
+        })
+      );
+      
+      expect(queueService.addToQueue).toHaveBeenCalled();
+      
+      expect(mockRes.status).toHaveBeenCalledWith(200);
+      expect(mockRes.json).toHaveBeenCalledWith({
+        success: true,
+        message: expect.stringContaining('Deployment queued for retry'),
+        deployment: expect.objectContaining({
+          id: 'deployment-123',
+          status: 'queued'
+        })
+      });
+    });
+    
+    it('should not retry non-failed deployments', async () => {
+      // Set up request
+      mockReq.params.deploymentId = 'deployment-123';
+      
+      // Mock deployment data - successful deployment
+      const mockDeployment = {
+        id: 'deployment-123',
+        websiteId: 'website-123',
+        status: 'success'
+      };
+      
+      deploymentService.getDeploymentById.mockResolvedValue(mockDeployment);
+      
+      // Call the controller method
+      await adminController.retryDeployment(mockReq, mockRes);
+      
+      // Assertions
+      expect(mockRes.status).toHaveBeenCalledWith(400);
+      expect(mockRes.json).toHaveBeenCalledWith({
+        error: 'Only failed deployments can be retried',
+        details: expect.any(String)
+      });
+      
+      expect(deploymentService.updateDeployment).not.toHaveBeenCalled();
+      expect(queueService.addToQueue).not.toHaveBeenCalled();
+    });
+    
+    it('should handle deployment not found', async () => {
+      // Set up request
+      mockReq.params.deploymentId = 'non-existent-id';
+      
+      // Mock deployment not found
+      deploymentService.getDeploymentById.mockResolvedValue(null);
+      
+      // Call the controller method
+      await adminController.retryDeployment(mockReq, mockRes);
+      
+      // Assertions
+      expect(mockRes.status).toHaveBeenCalledWith(404);
+      expect(mockRes.json).toHaveBeenCalledWith({
+        error: 'Deployment not found',
+        details: expect.any(String)
+      });
+    });
+    
+    it('should handle service errors', async () => {
+      // Set up request
+      mockReq.params.deploymentId = 'deployment-123';
+      
+      // Mock service error
+      deploymentService.getDeploymentById.mockRejectedValue(new Error('Service Error'));
+      
+      // Call the controller method
+      await adminController.retryDeployment(mockReq, mockRes);
+      
+      // Assertions
+      expect(mockRes.status).toHaveBeenCalledWith(500);
+      expect(mockRes.json).toHaveBeenCalledWith({
+        error: 'Failed to retry deployment',
+        details: expect.any(String)
+      });
+      
+      expect(logger.error).toHaveBeenCalledWith(expect.stringContaining('Error retrying deployment'), expect.any(Error));
+    });
+  });
+  
+  describe('cleanQueue', () => {
+    it('should clean a queue', async () => {
+      // Set up request
+      mockReq.params.queueName = 'deployments';
+      mockReq.body = {
+        status: 'completed',
+        olderThan: 86400000 // 24 hours in milliseconds
+      };
+      
+      // Mock clean success
+      queueService.cleanQueue.mockResolvedValue(5); // 5 jobs removed
+      
+      // Call the controller method
+      await adminController.cleanQueue(mockReq, mockRes);
+      
+      // Assertions
+      expect(queueService.cleanQueue).toHaveBeenCalledWith(
+        expect.objectContaining({ name: 'deployments' }),
+        'completed',
+        86400000
+      );
+      
+      expect(mockRes.status).toHaveBeenCalledWith(200);
+      expect(mockRes.json).toHaveBeenCalledWith({
+        success: true,
+        message: expect.stringContaining('5 jobs removed'),
+        count: 5
+      });
+    });
+    
+    it('should handle invalid queue name', async () => {
+      // Set up request with invalid queue name
+      mockReq.params.queueName = 'invalid-queue';
+      mockReq.body = {
+        status: 'completed',
+        olderThan: 86400000
+      };
+      
+      // Call the controller method
+      await adminController.cleanQueue(mockReq, mockRes);
+      
+      // Assertions
+      expect(mockRes.status).toHaveBeenCalledWith(404);
+      expect(mockRes.json).toHaveBeenCalledWith({
+        error: 'Queue not found',
+        details: expect.any(String)
+      });
+      
+      expect(queueService.cleanQueue).not.toHaveBeenCalled();
+    });
+    
+    it('should handle invalid parameters', async () => {
+      // Set up request with missing parameters
+      mockReq.params.queueName = 'deployments';
+      mockReq.body = {}; // Missing required fields
+      
+      // Call the controller method
+      await adminController.cleanQueue(mockReq, mockRes);
+      
+      // Assertions
+      expect(mockRes.status).toHaveBeenCalledWith(400);
+      expect(mockRes.json).toHaveBeenCalledWith({
+        error: 'Invalid parameters',
+        details: expect.stringContaining('status and olderThan')
+      });
+      
+      expect(queueService.cleanQueue).not.toHaveBeenCalled();
+    });
+    
+    it('should handle service errors', async () => {
+      // Set up request
+      mockReq.params.queueName = 'deployments';
+      mockReq.body = {
+        status: 'completed',
+        olderThan: 86400000
+      };
+      
+      // Mock service error
+      queueService.cleanQueue.mockRejectedValue(new Error('Clean Error'));
+      
+      // Call the controller method
+      await adminController.cleanQueue(mockReq, mockRes);
+      
+      // Assertions
+      expect(mockRes.status).toHaveBeenCalledWith(500);
+      expect(mockRes.json).toHaveBeenCalledWith({
+        error: 'Failed to clean queue',
+        details: expect.any(String)
+      });
+      
+      expect(logger.error).toHaveBeenCalledWith(expect.stringContaining('Error cleaning queue'), expect.any(Error));
+    });
+  });
+  
+  describe('retryDomainVerification', () => {
+    it('should retry domain verification', async () => {
+      // Set up request
+      mockReq.params.domainId = 'domain-123';
+      
+      // Mock domain data - failed verification
+      const mockDomain = {
+        id: 'domain-123',
+        name: 'example.com',
+        websiteId: 'website-123',
+        status: 'pending',
+        verificationStatus: 'failed'
+      };
+      
+      domainService.getDomainById.mockResolvedValue(mockDomain);
+      domainService.updateDomain.mockImplementation((id, updates) => {
+        return Promise.resolve({
+          ...mockDomain,
+          ...updates
+        });
+      });
+      
+      // Mock queue service
+      queueService.addToQueue = jest.fn().mockResolvedValue({ id: 'new-job-123' });
+      
+      // Call the controller method
+      await adminController.retryDomainVerification(mockReq, mockRes);
+      
+      // Assertions
+      expect(domainService.getDomainById).toHaveBeenCalledWith('domain-123');
+      expect(domainService.updateDomain).toHaveBeenCalledWith(
+        'domain-123',
+        expect.objectContaining({
+          verificationStatus: 'pending'
+        })
+      );
+      
+      expect(queueService.addToQueue).toHaveBeenCalled();
+      
+      expect(mockRes.status).toHaveBeenCalledWith(200);
+      expect(mockRes.json).toHaveBeenCalledWith({
+        success: true,
+        message: expect.stringContaining('Domain verification queued for retry'),
+        domain: expect.objectContaining({
+          id: 'domain-123',
+          verificationStatus: 'pending'
+        })
+      });
+    });
+    
+    it('should not retry already verified domains', async () => {
+      // Set up request
+      mockReq.params.domainId = 'domain-123';
+      
+      // Mock domain data - verified domain
+      const mockDomain = {
+        id: 'domain-123',
+        name: 'example.com',
+        websiteId: 'website-123',
         status: 'active',
-        search: 'example',
-        websiteId: 'website-123'
+        verificationStatus: 'verified'
       };
-
-      // Mock data
-      const mockDomains = [
-        { id: 'domain-1', name: 'example.com', status: 'active', website: { name: 'Website 1' }, user: { firstName: 'John' } },
-        { id: 'domain-2', name: 'example.org', status: 'active', website: { name: 'Website 2' }, user: { firstName: 'Jane' } }
-      ];
-
-      // Mock findAndCountAll response
-      Domain.findAndCountAll.mockResolvedValue({
-        count: 30, // Total count of domains matching the query
-        rows: mockDomains
-      });
-
+      
+      domainService.getDomainById.mockResolvedValue(mockDomain);
+      
       // Call the controller method
-      await adminController.getDomains(req, res, next);
-
+      await adminController.retryDomainVerification(mockReq, mockRes);
+      
       // Assertions
-      expect(res.status).toHaveBeenCalledWith(200);
-      expect(res.json).toHaveBeenCalledWith({
-        domains: mockDomains,
-        pagination: {
-          totalItems: 30,
-          itemsPerPage: 15,
-          currentPage: 2,
-          totalPages: 2 // 30 items with 15 per page = 2 pages
-        }
+      expect(mockRes.status).toHaveBeenCalledWith(400);
+      expect(mockRes.json).toHaveBeenCalledWith({
+        error: 'Only failed verifications can be retried',
+        details: expect.any(String)
       });
-
-      // Verify model calls with correct parameters
-      expect(Domain.findAndCountAll).toHaveBeenCalledWith({
-        where: {
-          status: 'active',
-          websiteId: 'website-123',
-          name: {
-            [Op.iLike]: '%example%'
-          }
-        },
-        limit: 15,
-        offset: 15, // Page 2 with limit 15
-        order: [['createdAt', 'DESC']],
-        include: expect.any(Array)
+      
+      expect(domainService.updateDomain).not.toHaveBeenCalled();
+      expect(queueService.addToQueue).not.toHaveBeenCalled();
+    });
+    
+    it('should handle domain not found', async () => {
+      // Set up request
+      mockReq.params.domainId = 'non-existent-id';
+      
+      // Mock domain not found
+      domainService.getDomainById.mockResolvedValue(null);
+      
+      // Call the controller method
+      await adminController.retryDomainVerification(mockReq, mockRes);
+      
+      // Assertions
+      expect(mockRes.status).toHaveBeenCalledWith(404);
+      expect(mockRes.json).toHaveBeenCalledWith({
+        error: 'Domain not found',
+        details: expect.any(String)
       });
     });
-
-    it('should return 403 if user is not an admin', async () => {
-      // Set user role to non-admin
-      req.user.role = 'user';
-
+    
+    it('should handle service errors', async () => {
+      // Set up request
+      mockReq.params.domainId = 'domain-123';
+      
+      // Mock service error
+      domainService.getDomainById.mockRejectedValue(new Error('Service Error'));
+      
       // Call the controller method
-      await adminController.getDomains(req, res, next);
-
+      await adminController.retryDomainVerification(mockReq, mockRes);
+      
       // Assertions
-      expect(next).toHaveBeenCalledWith(expect.any(APIError));
-      expect(next.mock.calls[0][0].statusCode).toBe(403);
-      expect(next.mock.calls[0][0].message).toBe('Unauthorized access');
-
-      // Model method should not be called
-      expect(Domain.findAndCountAll).not.toHaveBeenCalled();
-    });
-  });
-
-  describe('getWebsiteDetails', () => {
-    it('should return detailed website information', async () => {
-      // Set request params
-      req.params = {
-        websiteId: 'website-123'
-      };
-
-      // Mock data
-      const mockWebsite = {
-        id: 'website-123',
-        name: 'Test Website',
-        user: {
-          firstName: 'John',
-          lastName: 'Doe',
-          email: 'john@example.com',
-          subscriptionTier: 'premium'
-        },
-        domains: [
-          { id: 'domain-1', name: 'example.com', status: 'active' }
-        ],
-        deployments: [
-          { id: 'deployment-1', status: 'success' },
-          { id: 'deployment-2', status: 'failed' }
-        ]
-      };
-
-      // Mock findByPk response
-      Website.findByPk.mockResolvedValue(mockWebsite);
-
-      // Call the controller method
-      await adminController.getWebsiteDetails(req, res, next);
-
-      // Assertions
-      expect(res.status).toHaveBeenCalledWith(200);
-      expect(res.json).toHaveBeenCalledWith({
-        website: mockWebsite
+      expect(mockRes.status).toHaveBeenCalledWith(500);
+      expect(mockRes.json).toHaveBeenCalledWith({
+        error: 'Failed to retry domain verification',
+        details: expect.any(String)
       });
-
-      // Verify model calls with correct parameters
-      expect(Website.findByPk).toHaveBeenCalledWith('website-123', {
-        include: expect.any(Array)
-      });
-    });
-
-    it('should return 404 if website not found', async () => {
-      // Set request params
-      req.params = {
-        websiteId: 'non-existent-website'
-      };
-
-      // Mock findByPk response for not found
-      Website.findByPk.mockResolvedValue(null);
-
-      // Call the controller method
-      await adminController.getWebsiteDetails(req, res, next);
-
-      // Assertions
-      expect(next).toHaveBeenCalledWith(expect.any(APIError));
-      expect(next.mock.calls[0][0].statusCode).toBe(404);
-      expect(next.mock.calls[0][0].message).toBe('Website not found');
-    });
-
-    it('should return 403 if user is not an admin', async () => {
-      // Set user role to non-admin
-      req.user.role = 'user';
-
-      // Set request params
-      req.params = {
-        websiteId: 'website-123'
-      };
-
-      // Call the controller method
-      await adminController.getWebsiteDetails(req, res, next);
-
-      // Assertions
-      expect(next).toHaveBeenCalledWith(expect.any(APIError));
-      expect(next.mock.calls[0][0].statusCode).toBe(403);
-      expect(next.mock.calls[0][0].message).toBe('Unauthorized access');
-
-      // Model method should not be called
-      expect(Website.findByPk).not.toHaveBeenCalled();
+      
+      expect(logger.error).toHaveBeenCalledWith(expect.stringContaining('Error retrying domain verification'), expect.any(Error));
     });
   });
 });
