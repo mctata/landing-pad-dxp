@@ -473,10 +473,31 @@ export const useEditorStore = create<EditorState>()(
           set({ isSaving: true });
           
           try {
-            // TODO: Implement API call to save project
-            await new Promise(resolve => setTimeout(resolve, 1000)); // Simulate API call
+            // Import the API
+            const { projectAPI, websiteAPI } = await import('../../lib/api');
             
-            console.log('Project saved:', project);
+            if (project.id.startsWith('website-')) {
+              // This is a website project (new format)
+              const websiteId = project.id.replace('website-', '');
+              const response = await websiteAPI.updateWebsite(websiteId, {
+                name: project.name,
+                settings: project.settings,
+                content: {
+                  pages: project.pages
+                }
+              });
+              console.log('Website saved:', response.data);
+            } else {
+              // This is a legacy project
+              const response = await projectAPI.updateProject(project.id, {
+                name: project.name,
+                content: {
+                  pages: project.pages
+                },
+                settings: project.settings
+              });
+              console.log('Project saved:', response.data);
+            }
           } catch (error) {
             console.error('Error saving project:', error);
             throw error;

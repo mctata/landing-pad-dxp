@@ -219,4 +219,17 @@ export const subscriptionAPI = {
   resumeSubscription: () => api.post('/api/stripe/subscription/resume'),
 };
 
+// Website API
+export const websiteAPI = {
+  getWebsites: () => api.get('/api/websites'),
+  getWebsiteById: (id: string) => api.get(`/api/websites/${id}`),
+  createWebsite: (data: any) => api.post('/api/websites', data),
+  updateWebsite: (id: string, data: any) => api.patch(`/api/websites/${id}`, data),
+  deleteWebsite: (id: string) => api.delete(`/api/websites/${id}`),
+  publishWebsite: (id: string) => api.post(`/api/websites/${id}/publish`),
+  getDeployments: (id: string) => api.get(`/api/websites/${id}/deployments`),
+  getDomains: (id: string) => api.get(`/api/websites/${id}/domains`),
+  addDomain: (id: string, name: string) => api.post(`/api/websites/${id}/domains`, { name }),
+};
+
 export { api };

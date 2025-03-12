@@ -6,6 +6,8 @@ const { sequelize } = require('../config/database');
 const logger = require('../utils/logger');
 const seedTemplates = require('./templates');
 const seedUsers = require('./users');
+const seedWebsites = require('./websites');
+const seedContent = require('./content');
 
 // Run all seed functions
 const runSeeds = async () => {
@@ -17,12 +19,18 @@ const runSeeds = async () => {
     await sequelize.sync({ force: forceSync });
     logger.info(`Database synced ${forceSync ? 'with force reset' : ''}`);
     
-    // Run seeds
+    // Run seeds in order - templates first, then users, then websites (which depend on users)
     await seedTemplates();
     
-    // Seed users (if not in production)
+    // Seed users and websites (if not in production)
     if (process.env.NODE_ENV !== 'production') {
       await seedUsers();
+      
+      // Seed websites after users (since websites depend on users)
+      await seedWebsites();
+      
+      // Seed content after users and websites (since content depends on both)
+      await seedContent();
     }
     
     logger.info('All seeds completed successfully');

@@ -38,7 +38,7 @@ app.use((err, req, res, next) => {
 });
 
 // Start server
-app.listen(PORT, () => {
+app.listen(PORT, async () => {
   logger.info(`Server running on port ${PORT}`);
   logger.info(`Environment: ${process.env.NODE_ENV || 'development'}`);
   
@@ -47,6 +47,19 @@ app.listen(PORT, () => {
     logger.info(`OpenAI API is configured with model: ${process.env.OPENAI_MODEL || 'gpt-3.5-turbo'}`);
   } else {
     logger.warn('OpenAI API key is not set. AI features will not function properly.');
+  }
+  
+  // Start worker in development mode or when RUN_WORKER_IN_PROCESS is true
+  if (process.env.NODE_ENV === 'development' || process.env.RUN_WORKER_IN_PROCESS === 'true') {
+    try {
+      const { startWorker } = require('./workers/deploymentWorker');
+      await startWorker();
+      logger.info('Deployment worker started in-process');
+    } catch (error) {
+      logger.error('Failed to start deployment worker:', error);
+    }
+  } else {
+    logger.info('Deployment worker not started in-process. Should be running as a separate process in production.');
   }
 });
 

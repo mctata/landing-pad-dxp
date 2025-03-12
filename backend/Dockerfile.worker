@@ -1,0 +1,22 @@
+FROM node:18-alpine
+
+# Create app directory
+WORKDIR /usr/src/app
+
+# Install dependencies first for better caching
+COPY package*.json ./
+RUN npm ci --only=production
+
+# Copy application code
+COPY . .
+
+# Set environment variables
+ENV NODE_ENV=production
+ENV RUN_WORKER_IN_PROCESS=false
+
+# Add directories for build process
+RUN mkdir -p /tmp/landingpad-builds
+RUN chmod 777 /tmp/landingpad-builds
+
+# Start the worker process
+CMD ["node", "src/workers/deploymentWorker.js"]

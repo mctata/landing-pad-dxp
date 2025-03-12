@@ -4,19 +4,92 @@ const path = require('path');
 const fs = require('fs').promises;
 const { execSync } = require('child_process');
 const { v4: uuidv4 } = require('uuid');
+const { sequelize } = require('../config/database');
+const { ValidationError, UniqueConstraintError, ForeignKeyConstraintError } = require('sequelize');
 const deploymentService = require('../services/deploymentService');
 const websiteService = require('../services/websiteService');
 const domainService = require('../services/domainService');
+const queueService = require('../services/queueService');
 
 /**
  * Controller responsible for website publishing and deployment
  */
 const publishController = {
   /**
+   * Handle deployment status webhook from Vercel
+   * @route POST /api/websites/webhook/deployment
+   */
+  async handleDeploymentWebhook(req, res, next) {
+    try {
+      const { verifySignature } = require('../utils/webhookUtils');
+      
+      // Verify webhook signature
+      if (!verifySignature(req)) {
+        logger.warn('Invalid webhook signature received');
+        return res.status(401).json({ error: 'Invalid signature' });
+      }
+      
+      const payload = req.body;
+      logger.info('Received deployment webhook', { deploymentId: payload.id, status: payload.state });
+      
+      // Extract deployment information from payload
+      const { id: vercelDeploymentId, name, url, state } = payload;
+      
+      // Find our deployment record using metadata from Vercel
+      // Assuming we store our deployment ID in Vercel's metadata when creating deployments
+      const deploymentId = payload.meta?.deploymentId;
+      
+      if (!deploymentId) {
+        logger.warn('No deployment ID found in webhook payload', { vercelDeploymentId });
+        return res.status(200).json({ received: true }); // Acknowledge receipt but do nothing
+      }
+      
+      // Map Vercel deployment states to our states
+      const statusMap = {
+        READY: 'success',
+        ERROR: 'failed',
+        BUILDING: 'in_progress',
+        QUEUED: 'queued',
+        CANCELED: 'canceled'
+      };
+      
+      const status = statusMap[state] || 'unknown';
+      
+      // Update our deployment status
+      await deploymentService.updateDeployment(deploymentId, {
+        status,
+        deploymentUrl: url,
+        completedAt: ['success', 'failed', 'canceled'].includes(status) ? new Date() : null,
+        errorMessage: state === 'ERROR' ? 'Deployment failed on Vercel' : null
+      });
+      
+      // If successful, update the website with the new URL
+      if (status === 'success') {
+        const deployment = await deploymentService.getDeploymentById(deploymentId);
+        if (deployment) {
+          await websiteService.updateWebsite(deployment.websiteId, {
+            lastDeployedAt: new Date(),
+            lastSuccessfulDeploymentId: deploymentId,
+            publicUrl: url
+          });
+        }
+      }
+      
+      res.status(200).json({ received: true });
+    } catch (error) {
+      logger.error('Error processing deployment webhook:', error);
+      // Always return 200 to Vercel to acknowledge receipt
+      res.status(200).json({ received: true });
+    }
+  },
+  /**
    * Publish a website
    * @route POST /api/websites/:websiteId/publish
    */
   async publishWebsite(req, res, next) {
+    // Use a transaction for related operations
+    const t = await sequelize.transaction();
+    
     try {
       const { websiteId } = req.params;
       const userId = req.user.id;
@@ -27,46 +100,67 @@ const publishController = {
         throw new APIError('Website not found', 404);
       }
       
+      // Check if website already has active deployments
+      const hasActiveDeployments = await deploymentService.hasActiveDeployments(websiteId);
+      if (hasActiveDeployments) {
+        throw new APIError('A deployment is already in progress for this website', 409);
+      }
+      
       logger.info(`Publishing website ${websiteId} for user ${userId}`);
       
       // Generate a new deployment
-      const deploymentId = uuidv4();
       const version = generateVersion();
       
-      // Create a new deployment record
-      const deployment = await deploymentService.createDeployment({
-        id: deploymentId,
-        websiteId,
-        userId,
-        status: 'queued',
-        version,
-        commitMessage: 'User initiated deployment',
-      });
-      
-      // Queue the actual deployment process
-      // This would be better handled by a queue service in production
-      setTimeout(() => {
-        processDeployment(deploymentId, websiteId, userId)
-          .catch(err => {
-            logger.error(`Deployment processing error: ${err.message}`, { deploymentId, websiteId });
-          });
-      }, 100);
-      
-      // Update the website's lastPublishedAt timestamp
-      await websiteService.updateWebsite(websiteId, { 
-        lastPublishedAt: new Date().toISOString() 
-      });
-      
-      res.status(200).json({
-        message: 'Website publishing initiated',
-        deployment: {
-          id: deployment.id,
-          version: deployment.version,
-          status: deployment.status,
-          createdAt: deployment.createdAt
+      try {
+        // Create a new deployment record within the transaction
+        const deployment = await deploymentService.createDeployment({
+          websiteId,
+          userId,
+          status: 'queued',
+          version,
+          commitMessage: 'User initiated deployment',
+        });
+        
+        // Update the website's lastPublishedAt timestamp within the transaction
+        await websiteService.updateWebsite(websiteId, { 
+          lastPublishedAt: new Date()
+        });
+        
+        // Commit the transaction
+        await t.commit();
+        
+        // Queue the actual deployment process using the queue service
+        await queueService.queueDeployment(deployment.id, websiteId, userId);
+        
+        res.status(200).json({
+          message: 'Website publishing initiated',
+          deployment: {
+            id: deployment.id,
+            version: deployment.version,
+            status: deployment.status,
+            createdAt: deployment.createdAt
+          }
+        });
+      } catch (dbError) {
+        // Rollback transaction on database errors
+        await t.rollback();
+        
+        if (dbError instanceof ValidationError) {
+          logger.error('Validation error during deployment creation', dbError);
+          throw new APIError('Invalid deployment data', 400);
+        } else if (dbError instanceof ForeignKeyConstraintError) {
+          logger.error('Foreign key constraint error during deployment creation', dbError);
+          throw new APIError('Referenced entity does not exist', 400);
+        } else {
+          logger.error('Database error during deployment creation', dbError);
+          throw dbError;
         }
-      });
+      }
     } catch (error) {
+      // If transaction hasn't been committed or rolled back yet
+      if (t && !t.finished) {
+        await t.rollback();
+      }
       next(error);
     }
   },
@@ -158,6 +252,9 @@ const publishController = {
    * @route POST /api/websites/:websiteId/domains
    */
   async addDomain(req, res, next) {
+    // Use a transaction for domain creation
+    const t = await sequelize.transaction();
+    
     try {
       const { websiteId } = req.params;
       const { name } = req.body;
@@ -196,22 +293,55 @@ const publishController = {
         }
       ];
       
-      // Create domain
-      const domain = await domainService.createDomain({
-        name,
-        websiteId,
-        userId,
-        status: 'pending',
-        verificationStatus: 'pending',
-        isPrimary: false,
-        dnsRecords
-      });
-      
-      res.status(201).json({ 
-        message: 'Domain added successfully',
-        domain 
-      });
+      try {
+        // Create domain with transaction
+        const domain = await domainService.createDomain({
+          name,
+          websiteId,
+          userId,
+          status: 'pending',
+          verificationStatus: 'pending',
+          isPrimary: false,
+          dnsRecords
+        }, { transaction: t });
+        
+        // If this is the first domain for the website and no primary is set,
+        // automatically make it the primary domain
+        const domains = await domainService.getDomainsByWebsiteId(websiteId);
+        if (domains.length === 1) {
+          await domainService.setPrimaryDomain(websiteId, domain.id, { transaction: t });
+        }
+        
+        // Commit the transaction
+        await t.commit();
+        
+        res.status(201).json({ 
+          message: 'Domain added successfully',
+          domain 
+        });
+      } catch (dbError) {
+        // Rollback transaction on database errors
+        await t.rollback();
+        
+        if (dbError instanceof ValidationError) {
+          logger.error('Validation error during domain creation', dbError);
+          throw new APIError('Invalid domain data', 400);
+        } else if (dbError instanceof UniqueConstraintError) {
+          logger.error('Unique constraint error during domain creation', dbError);
+          throw new APIError('This domain is already in use', 400);
+        } else if (dbError instanceof ForeignKeyConstraintError) {
+          logger.error('Foreign key constraint error during domain creation', dbError);
+          throw new APIError('Referenced entity does not exist', 400);
+        } else {
+          logger.error('Database error during domain creation', dbError);
+          throw dbError;
+        }
+      }
     } catch (error) {
+      // If transaction hasn't been committed or rolled back yet
+      if (t && !t.finished) {
+        await t.rollback();
+      }
       next(error);
     }
   },
@@ -311,13 +441,34 @@ const publishController = {
         throw new APIError('Domain not found', 404);
       }
       
-      // Initiate domain verification (this would call external API in production)
-      const result = await domainService.verifyDomain(domainId);
+      // Don't reverify domains that are already verified
+      if (domain.verificationStatus === 'verified' && domain.status === 'active') {
+        return res.status(200).json({ 
+          message: 'Domain is already verified',
+          status: 'verified'
+        });
+      }
       
-      res.status(200).json({ 
-        message: 'Domain verification initiated',
-        status: result.verificationStatus
-      });
+      try {
+        // Queue the domain verification task
+        await queueService.queueDomainVerification(domainId, websiteId);
+        
+        res.status(200).json({ 
+          message: 'Domain verification initiated',
+          status: 'pending'
+        });
+      } catch (dbError) {
+        if (dbError instanceof ValidationError) {
+          logger.error('Validation error during domain verification', dbError);
+          throw new APIError('Invalid domain data', 400);
+        } else if (dbError instanceof ForeignKeyConstraintError) {
+          logger.error('Foreign key constraint error during domain verification', dbError);
+          throw new APIError('Referenced entity does not exist', 400);
+        } else {
+          logger.error('Database error during domain verification', dbError);
+          throw new APIError('An error occurred during domain verification', 500);
+        }
+      }
     } catch (error) {
       next(error);
     }
@@ -341,47 +492,26 @@ async function processDeployment(deploymentId, websiteId, userId) {
   logger.info(`Processing deployment ${deploymentId} for website ${websiteId}`);
   
   try {
-    // Update deployment status to in_progress
-    await deploymentService.updateDeployment(deploymentId, {
-      status: 'in_progress',
-    });
-    
-    const startTime = Date.now();
-    
-    // Get website data
-    const website = await websiteService.getWebsiteById(websiteId, userId);
-    if (!website) {
-      throw new Error('Website not found');
-    }
-    
-    // In a real implementation, here we would:
-    // 1. Export the website data
-    // 2. Generate static files or prepare the deployment package
-    // 3. Upload to the hosting provider (like Vercel, Netlify, AWS S3, etc.)
-    
-    // Simulate deployment processing time
-    await new Promise(resolve => setTimeout(resolve, 5000));
-    
-    // For simplicity, we'll just simulate a successful deployment
-    const buildTime = Date.now() - startTime;
-    
-    // Update deployment status to success
-    await deploymentService.updateDeployment(deploymentId, {
-      status: 'success',
-      completedAt: new Date().toISOString(),
-      buildTime,
-    });
-    
-    logger.info(`Deployment ${deploymentId} completed successfully in ${buildTime}ms`);
+    // Use the enhanced deployment service to process the deployment
+    await deploymentService.processDeployment(deploymentId);
+    logger.info(`Deployment ${deploymentId} processed successfully`);
   } catch (error) {
-    logger.error(`Deployment ${deploymentId} failed: ${error.message}`);
+    // Critical error that prevented deployment processing
+    logger.error(`Critical deployment error: ${error.message}`, { deploymentId, websiteId });
     
-    // Update deployment status to failed
-    await deploymentService.updateDeployment(deploymentId, {
-      status: 'failed',
-      completedAt: new Date().toISOString(),
-      errorMessage: error.message,
-    });
+    // Try one more time to update the status to failed if it wasn't already updated
+    try {
+      const deployment = await deploymentService.getDeploymentById(deploymentId);
+      if (deployment && deployment.status !== 'failed') {
+        await deploymentService.updateDeployment(deploymentId, {
+          status: 'failed',
+          completedAt: new Date(),
+          errorMessage: `Critical error: ${error.message}`,
+        });
+      }
+    } catch (finalError) {
+      logger.error(`Failed to update deployment failure status: ${finalError.message}`, { deploymentId });
+    }
   }
 }
 
