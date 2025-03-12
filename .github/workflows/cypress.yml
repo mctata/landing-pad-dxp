@@ -3,13 +3,11 @@ on: [push]
 jobs:
   cypress-run:
     runs-on: ubuntu-latest
-    # Runs tests in parallel with matrix strategy https://docs.cypress.io/guides/guides/parallelization
-    # https://docs.github.com/en/actions/using-jobs/using-a-matrix-for-your-jobs
-    # Also see warning here https://github.com/cypress-io/github-action#parallel
+    # Disable parallel testing for now to focus on making tests pass
     strategy:
-      fail-fast: false # https://github.com/cypress-io/github-action/issues/48
+      fail-fast: true
       matrix:
-        containers: [1, 2] # Uses 2 parallel instances
+        containers: [1] # Run in a single container
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -48,11 +46,10 @@ jobs:
           # Use start-server-and-test to run both frontend and backend
           start: npm run dev
           wait-on: 'http://localhost:3000' # Waits for frontend
-          wait-on-timeout: 120 # Give servers more time to start
-          # Records to Cypress Cloud 
-          # https://docs.cypress.io/guides/cloud/projects#Set-up-a-project-to-record
-          record: true
-          parallel: true # Runs test in parallel using settings above
+          wait-on-timeout: 180 # Give servers more time to start
+          # Disable recording for now
+          record: false
+          parallel: false
         env:
           # For recording and parallelization to work you must set your CYPRESS_RECORD_KEY
           # in GitHub repo → Settings → Secrets → Actions
