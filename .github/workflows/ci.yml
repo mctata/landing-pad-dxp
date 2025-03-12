@@ -32,18 +32,24 @@ jobs:
     
     - name: Run tests
       run: npm test
+      env:
+        DATABASE_URL: postgres://test:test@localhost:5432/testdb
+        JWT_SECRET: test-jwt-secret-for-ci
+        API_KEY: test-api-key-for-ci
     
     - name: Upload test results
       uses: actions/upload-artifact@v3
       with:
         name: backend-test-results
         path: backend/test-results
+      if: always()
     
     - name: Upload coverage report
       uses: actions/upload-artifact@v3
       with:
         name: backend-coverage
         path: backend/coverage
+      if: always()
 
   frontend-test:
     runs-on: ubuntu-latest
@@ -68,9 +74,6 @@ jobs:
     - name: Run linting
       run: npm run lint || true
     
-    - name: Run type checking
-      run: npm run typecheck || true
-    
     - name: Run tests
       run: npm test
     
@@ -79,6 +82,7 @@ jobs:
       with:
         name: frontend-test-results
         path: frontend/test-results
+      if: always()
 
   build:
     needs: [backend-test, frontend-test]
@@ -93,6 +97,9 @@ jobs:
       with:
         node-version: 18
     
+    - name: Root - Install dependencies
+      run: npm ci
+    
     - name: Backend - Install dependencies
       run: cd backend && npm ci
     
@@ -101,15 +108,21 @@ jobs:
     
     - name: Build backend
       run: cd backend && npm run build --if-present
+      env:
+        DATABASE_URL: postgres://test:test@localhost:5432/testdb
+        JWT_SECRET: test-jwt-secret-for-ci
+        API_KEY: test-api-key-for-ci
     
     - name: Build frontend
       run: cd frontend && npm run build
+      env:
+        NEXT_PUBLIC_API_URL: http://localhost:3001
     
     - name: Package artifacts
       run: |
         mkdir -p artifacts
         cp -r backend/dist artifacts/backend || mkdir -p artifacts/backend
-        cp -r frontend/out artifacts/frontend || cp -r frontend/.next artifacts/frontend
+        cp -r frontend/.next artifacts/frontend
     
     - name: Upload build artifacts
       uses: actions/upload-artifact@v3
