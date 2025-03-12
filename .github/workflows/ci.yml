@@ -38,14 +38,14 @@ jobs:
         API_KEY: test-api-key-for-ci
     
     - name: Upload test results
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v2
       with:
         name: backend-test-results
         path: backend/test-results
       if: always()
     
     - name: Upload coverage report
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v2
       with:
         name: backend-coverage
         path: backend/coverage
@@ -78,7 +78,7 @@ jobs:
       run: npm test
     
     - name: Upload test results
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v2
       with:
         name: frontend-test-results
         path: frontend/test-results
@@ -125,7 +125,7 @@ jobs:
         cp -r frontend/.next artifacts/frontend
     
     - name: Upload build artifacts
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v2
       with:
         name: build-artifacts
         path: artifacts

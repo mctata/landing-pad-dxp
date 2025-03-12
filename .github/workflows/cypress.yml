@@ -21,13 +21,13 @@ jobs:
           cache: 'npm'
           
       - name: Install root dependencies
-        run: npm ci
+        run: npm install
         
       - name: Install backend dependencies
-        run: cd backend && npm ci
+        run: cd backend && npm install
         
       - name: Install frontend dependencies
-        run: cd frontend && npm ci
+        run: cd frontend && npm install
         
       - name: Cypress run
         # Uses the official Cypress GitHub action https://github.com/cypress-io/github-action

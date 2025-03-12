@@ -33,22 +33,10 @@ jobs:
         restore-keys: |
           ${{ runner.os }}-buildx-
     
-    - name: Check if Docker Hub credentials exist
+    # Skip Docker Hub authentication for now
+    - name: Set Docker Hub credentials check
       id: check_creds
-      run: |
-        if [ -n "${{ secrets.DOCKER_HUB_USERNAME }}" ] && [ -n "${{ secrets.DOCKER_HUB_ACCESS_TOKEN }}" ]; then
-          echo "has_creds=true" >> $GITHUB_OUTPUT
-        else
-          echo "has_creds=false" >> $GITHUB_OUTPUT
-          echo "::warning::Docker Hub credentials not found. Will skip pushing to Docker Hub."
-        fi
-    
-    - name: Login to Docker Hub
-      if: steps.check_creds.outputs.has_creds == 'true'
-      uses: docker/login-action@v2
-      with:
-        username: ${{ secrets.DOCKER_HUB_USERNAME }}
-        password: ${{ secrets.DOCKER_HUB_ACCESS_TOKEN }}
+      run: echo "has_creds=false" >> $GITHUB_OUTPUT
     
     - name: Set up environment variables
       id: env_vars
