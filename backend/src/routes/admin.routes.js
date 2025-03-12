@@ -32,9 +32,15 @@ router.get('/websites/:websiteId', adminController.getWebsiteDetails);
 
 // Deployments management 
 router.get('/deployments', adminController.getDeployments);
+router.post('/deployments/:deploymentId/retry', adminController.retryDeployment);
 
 // Domains management
 router.get('/domains', adminController.getDomains);
+
+// Queue dashboard
+router.get('/queue/dashboard', adminController.getQueueDashboard);
+router.post('/queue/pause', adminController.pauseQueue);
+router.post('/queue/resume', adminController.resumeQueue);
 
 // Cache management
 router.get('/cache/stats', cacheController.getStats);

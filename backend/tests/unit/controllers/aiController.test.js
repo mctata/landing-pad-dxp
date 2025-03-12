@@ -125,8 +125,7 @@ describe('AI Controller', () => {
 
       // Assertions
       expect(logger.error).toHaveBeenCalledWith(
-        expect.stringContaining('Error in generateContent:'),
-        error.message
+        `Error in generateContent: ${error.message}`
       );
       expect(res.status).toHaveBeenCalledWith(500);
       expect(res.json).toHaveBeenCalledWith({

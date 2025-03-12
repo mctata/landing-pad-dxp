@@ -528,6 +528,12 @@ const deploymentService = {
     try {
       buildLogs.push('Preparing deployment to Vercel...');
       
+      // Run pre-deployment validation tests
+      const validationResult = await this.validateDeployment(website, buildDir, buildLogs);
+      if (!validationResult.valid) {
+        throw new Error(`Pre-deployment validation failed: ${validationResult.errors.join(', ')}`);
+      }
+      
       // Prepare files for Vercel deployment
       const files = await this.prepareFilesForVercel(buildDir, buildLogs);
       buildLogs.push(`Prepared ${files.length} files for deployment`);
@@ -576,18 +582,47 @@ const deploymentService = {
         
         // Only send to real Vercel API if we have valid credentials
         if (hasValidCredentials) {
-          // Send to Vercel API
-          const response = await axios.post(
-            DEPLOYMENT_CONFIG.deploymentEndpoint,
-            deploymentPayload,
-            {
-              headers: {
-                Authorization: `Bearer ${DEPLOYMENT_CONFIG.apiToken}`,
-                'Content-Type': 'application/json',
-              },
-              timeout: 30000 // 30 second timeout
+          // Send to Vercel API with retry mechanism
+          let response;
+          let retryCount = 0;
+          const maxRetries = 3;
+          
+          while (retryCount <= maxRetries) {
+            try {
+              response = await axios.post(
+                DEPLOYMENT_CONFIG.deploymentEndpoint,
+                deploymentPayload,
+                {
+                  headers: {
+                    Authorization: `Bearer ${DEPLOYMENT_CONFIG.apiToken}`,
+                    'Content-Type': 'application/json',
+                  },
+                  timeout: 30000 // 30 second timeout
+                }
+              );
+              break; // Success, exit the retry loop
+            } catch (err) {
+              // Check if error is retryable (e.g., rate limit, server error)
+              if (
+                (err.response && err.response.status >= 500) || 
+                (err.response && err.response.status === 429) || 
+                err.code === 'ECONNRESET' || 
+                err.code === 'ETIMEDOUT'
+              ) {
+                retryCount++;
+                if (retryCount <= maxRetries) {
+                  // Exponential backoff: 2s, 4s, 8s
+                  const delay = Math.pow(2, retryCount) * 1000;
+                  buildLogs.push(`API call failed, retrying in ${delay/1000}s (attempt ${retryCount}/${maxRetries})...`);
+                  await new Promise(resolve => setTimeout(resolve, delay));
+                } else {
+                  throw err; // Max retries exceeded
+                }
+              } else {
+                throw err; // Non-retryable error
+              }
             }
-          );
+          }
           
           // Get deployment URL from response
           const deploymentUrl = response.data.url;
@@ -602,6 +637,22 @@ const deploymentService = {
           const finalUrl = deploymentUrl.startsWith('https://') 
             ? deploymentUrl 
             : `https://${deploymentUrl}`;
+          
+          // Run post-deployment checks to validate the deployment
+          try {
+            buildLogs.push('Running post-deployment validation checks...');
+            const deploymentChecks = await this.validateDeployedWebsite(finalUrl, buildLogs);
+            
+            if (!deploymentChecks.valid) {
+              buildLogs.push(`Warning: Post-deployment checks failed: ${deploymentChecks.errors.join(', ')}`);
+              // We don't fail the deployment for post-deployment checks, just log it
+            } else {
+              buildLogs.push('Post-deployment validation successful');
+            }
+          } catch (validationError) {
+            buildLogs.push(`Warning: Post-deployment validation error: ${validationError.message}`);
+            // Continue despite validation errors in post-deployment
+          }
           
           return finalUrl;
         } else {
@@ -643,6 +694,216 @@ const deploymentService = {
     } catch (error) {
       buildLogs.push(`Deployment to provider failed: ${error.message}`);
       throw error;
+    }
+  },
+  
+  /**
+   * Validate deployment before sending to provider
+   * @param {Object} website - Website data
+   * @param {string} buildDir - Build directory
+   * @param {Array} buildLogs - Build logs array
+   * @returns {Promise<Object>} - Validation result with valid boolean and errors array
+   */
+  async validateDeployment(website, buildDir, buildLogs) {
+    const errors = [];
+    buildLogs.push('Running pre-deployment validation...');
+    
+    try {
+      // 1. Check for index.html existence
+      try {
+        const indexPath = path.join(buildDir, 'index.html');
+        await fs.access(indexPath);
+        buildLogs.push('✓ index.html exists');
+      } catch (indexError) {
+        const error = 'Missing index.html file';
+        errors.push(error);
+        buildLogs.push(`✗ ${error}`);
+      }
+      
+      // 2. Check CSS file
+      try {
+        const cssPath = path.join(buildDir, 'styles.css');
+        await fs.access(cssPath);
+        buildLogs.push('✓ styles.css exists');
+      } catch (cssError) {
+        const error = 'Missing styles.css file';
+        errors.push(error);
+        buildLogs.push(`✗ ${error}`);
+      }
+      
+      // 3. Check for broken links in HTML files
+      try {
+        const htmlFiles = await fs.readdir(buildDir);
+        const htmlPaths = htmlFiles
+          .filter(file => file.endsWith('.html'))
+          .map(file => path.join(buildDir, file));
+        
+        for (const htmlPath of htmlPaths) {
+          const content = await fs.readFile(htmlPath, 'utf8');
+          
+          // Check for broken local resource links
+          const resourceRegex = /(src|href)=['"]((?!http)[^'"]+)['"]/g;
+          let match;
+          
+          while ((match = resourceRegex.exec(content)) !== null) {
+            const resource = match[2];
+            // Skip anchors and javascript: links
+            if (resource.startsWith('#') || resource.startsWith('javascript:') || resource.startsWith('mailto:')) {
+              continue;
+            }
+            
+            try {
+              const resourcePath = path.join(buildDir, resource);
+              await fs.access(resourcePath);
+            } catch (resourceError) {
+              const error = `Broken link in ${path.basename(htmlPath)}: ${resource}`;
+              errors.push(error);
+              buildLogs.push(`✗ ${error}`);
+            }
+          }
+        }
+        
+        if (htmlPaths.length > 0) {
+          buildLogs.push(`✓ Checked links in ${htmlPaths.length} HTML files`);
+        } else {
+          const error = 'No HTML files found in build directory';
+          errors.push(error);
+          buildLogs.push(`✗ ${error}`);
+        }
+      } catch (htmlError) {
+        const error = `Error checking HTML files: ${htmlError.message}`;
+        errors.push(error);
+        buildLogs.push(`✗ ${error}`);
+      }
+      
+      // 4. Check HTML validity (basic checks)
+      try {
+        const indexPath = path.join(buildDir, 'index.html');
+        const indexContent = await fs.readFile(indexPath, 'utf8');
+        
+        // Check for doctype, html, head and body tags
+        const hasDoctype = indexContent.toLowerCase().includes('<!doctype html');
+        const hasHtmlTag = /<html[^>]*>/i.test(indexContent);
+        const hasHeadTag = /<head[^>]*>/i.test(indexContent);
+        const hasBodyTag = /<body[^>]*>/i.test(indexContent);
+        
+        if (!hasDoctype) {
+          const error = 'index.html missing DOCTYPE declaration';
+          errors.push(error);
+          buildLogs.push(`✗ ${error}`);
+        }
+        
+        if (!hasHtmlTag || !hasHeadTag || !hasBodyTag) {
+          const error = 'index.html missing required HTML structure (html, head, or body tags)';
+          errors.push(error);
+          buildLogs.push(`✗ ${error}`);
+        } else {
+          buildLogs.push('✓ HTML structure valid');
+        }
+      } catch (validityError) {
+        const error = `Error checking HTML validity: ${validityError.message}`;
+        errors.push(error);
+        buildLogs.push(`✗ ${error}`);
+      }
+      
+      // Return validation result
+      const valid = errors.length === 0;
+      
+      if (valid) {
+        buildLogs.push('✓ Pre-deployment validation passed');
+      } else {
+        buildLogs.push(`✗ Pre-deployment validation failed with ${errors.length} errors`);
+      }
+      
+      return {
+        valid,
+        errors
+      };
+    } catch (error) {
+      buildLogs.push(`Error during pre-deployment validation: ${error.message}`);
+      return {
+        valid: false,
+        errors: [`Validation error: ${error.message}`]
+      };
+    }
+  },
+  
+  /**
+   * Validate a deployed website
+   * @param {string} url - Deployment URL
+   * @param {Array} buildLogs - Build logs array
+   * @returns {Promise<Object>} - Validation result with valid boolean and errors array
+   */
+  async validateDeployedWebsite(url, buildLogs) {
+    const errors = [];
+    buildLogs.push(`Validating deployed website at ${url}...`);
+    
+    try {
+      // Allow time for the deployment to become available
+      await new Promise(resolve => setTimeout(resolve, 5000));
+      
+      // 1. Check if the site is accessible
+      try {
+        const response = await axios.get(url, {
+          timeout: 10000,
+          validateStatus: null
+        });
+        
+        if (response.status !== 200) {
+          const error = `Website returned non-200 status code: ${response.status}`;
+          errors.push(error);
+          buildLogs.push(`✗ ${error}`);
+        } else {
+          buildLogs.push('✓ Website is accessible (200 OK)');
+        }
+        
+        // 2. Check content type
+        const contentType = response.headers['content-type'];
+        if (!contentType || !contentType.includes('text/html')) {
+          const error = `Unexpected content type: ${contentType || 'none'}`;
+          errors.push(error);
+          buildLogs.push(`✗ ${error}`);
+        } else {
+          buildLogs.push('✓ Content type is valid');
+        }
+        
+        // 3. Check for basic content
+        const hasHtmlStructure = 
+          response.data.includes('<!DOCTYPE html') ||
+          response.data.includes('<!doctype html');
+          
+        if (!hasHtmlStructure) {
+          const error = 'Response does not contain valid HTML structure';
+          errors.push(error);
+          buildLogs.push(`✗ ${error}`);
+        } else {
+          buildLogs.push('✓ Response contains valid HTML');
+        }
+      } catch (accessError) {
+        const error = `Could not access deployed website: ${accessError.message}`;
+        errors.push(error);
+        buildLogs.push(`✗ ${error}`);
+      }
+      
+      // Return validation result
+      const valid = errors.length === 0;
+      
+      if (valid) {
+        buildLogs.push('✓ Deployment validation passed');
+      } else {
+        buildLogs.push(`✗ Deployment validation failed with ${errors.length} errors`);
+      }
+      
+      return {
+        valid,
+        errors
+      };
+    } catch (error) {
+      buildLogs.push(`Error during deployment validation: ${error.message}`);
+      return {
+        valid: false,
+        errors: [`Validation error: ${error.message}`]
+      };
     }
   },
   
