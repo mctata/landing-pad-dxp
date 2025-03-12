@@ -32,6 +32,9 @@ jobs:
       - name: Copy test env file to frontend
         run: cp .github/workflows/test.env frontend/.env.local
         
+      - name: Fix next-auth imports
+        run: bash .github/workflows/fix-next-auth.sh
+        
       - name: Cypress run
         # Uses the official Cypress GitHub action https://github.com/cypress-io/github-action
         uses: cypress-io/github-action@v6

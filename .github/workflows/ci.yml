@@ -108,6 +108,9 @@ jobs:
     
     - name: Copy test env file to frontend
       run: cp .github/workflows/test.env frontend/.env.local
+      
+    - name: Fix next-auth imports
+      run: bash .github/workflows/fix-next-auth.sh
     
     - name: Build backend
       run: cd backend && npm run build --if-present
