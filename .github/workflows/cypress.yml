@@ -29,6 +29,12 @@ jobs:
       - name: Install frontend dependencies
         run: cd frontend && npm install
         
+      - name: Copy test env file to backend
+        run: cp .github/workflows/test.env backend/.env
+    
+      - name: Copy test env file to frontend
+        run: cp .github/workflows/test.env frontend/.env.local
+        
       - name: Cypress run
         # Uses the official Cypress GitHub action https://github.com/cypress-io/github-action
         uses: cypress-io/github-action@v6

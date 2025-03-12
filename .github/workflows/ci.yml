@@ -30,12 +30,11 @@ jobs:
     - name: Run linting
       run: npm run lint || true
     
+    - name: Copy test env file
+      run: cp ../../.github/workflows/test.env ./.env
+      
     - name: Run tests
       run: npm test
-      env:
-        DATABASE_URL: postgres://test:test@localhost:5432/testdb
-        JWT_SECRET: test-jwt-secret-for-ci
-        API_KEY: test-api-key-for-ci
     
     - name: Upload test results
       uses: actions/upload-artifact@v2
@@ -106,17 +105,17 @@ jobs:
     - name: Frontend - Install dependencies
       run: cd frontend && npm ci
     
+    - name: Copy test env file to backend
+      run: cp .github/workflows/test.env backend/.env
+    
+    - name: Copy test env file to frontend
+      run: cp .github/workflows/test.env frontend/.env.local
+    
     - name: Build backend
       run: cd backend && npm run build --if-present
-      env:
-        DATABASE_URL: postgres://test:test@localhost:5432/testdb
-        JWT_SECRET: test-jwt-secret-for-ci
-        API_KEY: test-api-key-for-ci
     
     - name: Build frontend
       run: cd frontend && npm run build
-      env:
-        NEXT_PUBLIC_API_URL: http://localhost:3001
     
     - name: Package artifacts
       run: |
