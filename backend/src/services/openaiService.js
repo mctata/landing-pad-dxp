@@ -1,5 +1,6 @@
 const { Configuration, OpenAIApi } = require('openai');
 const logger = require('../utils/logger');
+const cacheService = require('./cacheService');
 
 class OpenAIService {
   constructor() {
@@ -24,10 +25,29 @@ class OpenAIService {
    * @param {string} params.prompt - User's prompt for content generation
    * @param {string} params.tone - Desired tone (professional, casual, etc.)
    * @param {string} params.length - Desired length (short, medium, long)
+   * @param {boolean} params.skipCache - Whether to skip the cache (optional)
    * @returns {Promise<Object>} - Generated content appropriate for the element type
    */
   async generateContent(params) {
-    const { elementType, prompt, tone = 'professional', length = 'medium' } = params;
+    const { elementType, prompt, tone = 'professional', length = 'medium', skipCache = false } = params;
+    
+    // Generate cache key
+    const cacheKey = cacheService.generateKey({
+      method: 'generateContent',
+      elementType,
+      prompt,
+      tone,
+      length
+    });
+    
+    // Check cache if not skipping
+    if (!skipCache) {
+      const cachedResult = cacheService.get(cacheKey);
+      if (cachedResult) {
+        logger.debug('Returning cached content for:', { elementType, prompt: prompt.substring(0, 30) + '...' });
+        return cachedResult;
+      }
+    }
     
     // Set the system prompt based on element type
     let systemPrompt = `You are an expert website content generator. 
@@ -133,7 +153,14 @@ Return JSON with these fields:
       });
 
       const responseText = response.data.choices[0].message.content;
-      return JSON.parse(responseText);
+      const result = JSON.parse(responseText);
+      
+      // Cache the result for future use
+      cacheService.set(cacheKey, result, 3600 * 24); // Cache for 24 hours
+      
+      logger.debug('Generated and cached new content for:', { elementType, prompt: prompt.substring(0, 30) + '...' });
+      
+      return result;
     } catch (error) {
       logger.error('Error generating content with OpenAI:', error);
       throw new Error(`Failed to generate content: ${error.message}`);
@@ -147,10 +174,29 @@ Return JSON with these fields:
    * @param {string} params.pageId - Page ID for context
    * @param {string} params.type - Type of suggestion to generate
    * @param {string} params.prompt - User's prompt for suggestion generation
+   * @param {boolean} params.skipCache - Whether to skip the cache (optional)
    * @returns {Promise<Array>} - Array of suggestions
    */
   async generateSuggestions(params) {
-    const { websiteId, pageId, type, prompt } = params;
+    const { websiteId, pageId, type, prompt, skipCache = false } = params;
+    
+    // Generate cache key
+    const cacheKey = cacheService.generateKey({
+      method: 'generateSuggestions',
+      websiteId,
+      pageId,
+      type,
+      prompt
+    });
+    
+    // Check cache if not skipping
+    if (!skipCache) {
+      const cachedResult = cacheService.get(cacheKey);
+      if (cachedResult) {
+        logger.debug('Returning cached suggestions for:', { type, prompt: prompt.substring(0, 30) + '...' });
+        return cachedResult;
+      }
+    }
     
     let systemPrompt = `You are an expert website design assistant.
 Generate several suggestions for ${type} based on the user's prompt.
@@ -312,7 +358,14 @@ Return a JSON array of 3 suggestions with this structure:
       });
 
       const responseText = response.data.choices[0].message.content;
-      return JSON.parse(responseText);
+      const result = JSON.parse(responseText);
+      
+      // Cache the result for future use (suggestions have a shorter ttl)
+      cacheService.set(cacheKey, result, 3600 * 12); // Cache for 12 hours
+      
+      logger.debug('Generated and cached new suggestions for:', { type, prompt: prompt.substring(0, 30) + '...' });
+      
+      return result;
     } catch (error) {
       logger.error('Error generating suggestions with OpenAI:', error);
       throw new Error(`Failed to generate suggestions: ${error.message}`);
