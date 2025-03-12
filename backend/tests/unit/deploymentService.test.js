@@ -1,7 +1,19 @@
 const deploymentService = require('../../src/services/deploymentService');
+const { Deployment } = require('../../src/models');
 const logger = require('../../src/utils/logger');
+const { Op } = require('sequelize');
 
-// Mock the logger
+// Mock the models and logger
+jest.mock('../../src/models', () => ({
+  Deployment: {
+    create: jest.fn(),
+    findAndCountAll: jest.fn(),
+    findByPk: jest.fn(),
+    findOne: jest.fn(),
+    count: jest.fn()
+  }
+}));
+
 jest.mock('../../src/utils/logger', () => ({
   info: jest.fn(),
   error: jest.fn(),
@@ -9,62 +21,56 @@ jest.mock('../../src/utils/logger', () => ({
   debug: jest.fn()
 }));
 
-// Access the in-memory deployments array directly
-// This is a bit of a hack to directly access the internal state
-const deployments = [];
-Object.defineProperty(deploymentService, 'deployments', {
-  get: function() { return deployments; }
-});
-
 describe('Deployment Service', () => {
   beforeEach(() => {
     // Reset all mocks
     jest.clearAllMocks();
-    
-    // Reset deployments array
-    deployments.length = 0;
   });
   
   describe('createDeployment', () => {
     it('should create a deployment with required fields', async () => {
-      const data = {
+      // Mock data
+      const deploymentData = {
         websiteId: 'website-123',
         userId: 'user-123',
         version: '1.0.0'
       };
       
-      const deployment = await deploymentService.createDeployment(data);
+      // Mock create response
+      const mockDeployment = {
+        id: 'deployment-123',
+        websiteId: 'website-123',
+        userId: 'user-123',
+        version: '1.0.0',
+        status: 'queued',
+        commitMessage: 'User initiated deployment',
+        createdAt: new Date(),
+        completedAt: null,
+        buildTime: null,
+        errorMessage: null
+      };
       
-      expect(deployment).toMatchObject({
+      Deployment.create.mockResolvedValue(mockDeployment);
+      
+      // Call the service method
+      const result = await deploymentService.createDeployment(deploymentData);
+      
+      // Assertions
+      expect(Deployment.create).toHaveBeenCalledWith({
         websiteId: 'website-123',
         userId: 'user-123',
         version: '1.0.0',
         status: 'queued',
         commitMessage: 'User initiated deployment'
       });
-      expect(deployment.id).toBeDefined();
-      expect(deployment.createdAt).toBeDefined();
-      expect(deployment.completedAt).toBeNull();
-      expect(deployment.buildTime).toBeNull();
-      expect(deployment.errorMessage).toBeNull();
+      
+      expect(result).toEqual(mockDeployment);
       expect(logger.info).toHaveBeenCalledWith(expect.stringContaining('Deployment created'));
     });
     
-    it('should use provided ID if specified', async () => {
-      const data = {
-        id: 'custom-id-123',
-        websiteId: 'website-123',
-        userId: 'user-123',
-        version: '1.0.0'
-      };
-      
-      const deployment = await deploymentService.createDeployment(data);
-      
-      expect(deployment.id).toBe('custom-id-123');
-    });
-    
-    it('should override default status if provided', async () => {
-      const data = {
+    it('should use provided status and commit message if specified', async () => {
+      // Mock data
+      const deploymentData = {
         websiteId: 'website-123',
         userId: 'user-123',
         version: '1.0.0',
@@ -72,314 +78,377 @@ describe('Deployment Service', () => {
         commitMessage: 'Custom commit message'
       };
       
-      const deployment = await deploymentService.createDeployment(data);
+      // Mock create response
+      const mockDeployment = {
+        id: 'deployment-123',
+        ...deploymentData,
+        createdAt: new Date(),
+        completedAt: null,
+        buildTime: null,
+        errorMessage: null
+      };
       
-      expect(deployment.status).toBe('in_progress');
-      expect(deployment.commitMessage).toBe('Custom commit message');
+      Deployment.create.mockResolvedValue(mockDeployment);
+      
+      // Call the service method
+      const result = await deploymentService.createDeployment(deploymentData);
+      
+      // Assertions
+      expect(Deployment.create).toHaveBeenCalledWith({
+        websiteId: 'website-123',
+        userId: 'user-123',
+        version: '1.0.0',
+        status: 'in_progress',
+        commitMessage: 'Custom commit message'
+      });
+      
+      expect(result).toEqual(mockDeployment);
+    });
+    
+    it('should handle errors properly', async () => {
+      // Mock error
+      const mockError = new Error('Database error');
+      Deployment.create.mockRejectedValue(mockError);
+      
+      // Call the service method and expect it to throw
+      await expect(deploymentService.createDeployment({
+        websiteId: 'website-123',
+        userId: 'user-123',
+        version: '1.0.0'
+      })).rejects.toThrow('Database error');
+      
+      expect(logger.error).toHaveBeenCalledWith('Error creating deployment:', mockError);
     });
   });
   
   describe('getDeployments', () => {
-    beforeEach(async () => {
-      jest.clearAllMocks();
-      deployments.length = 0;
-      
-      // Create test deployments
-      await deploymentService.createDeployment({
-        id: 'deploy-1',
-        websiteId: 'website-123',
-        userId: 'user-123',
-        version: '1.0.0',
-        createdAt: new Date('2023-01-01').toISOString()
-      });
-      
-      await deploymentService.createDeployment({
-        id: 'deploy-2',
-        websiteId: 'website-123',
-        userId: 'user-123',
-        version: '1.0.1',
-        createdAt: new Date('2023-01-02').toISOString()
-      });
-      
-      await deploymentService.createDeployment({
-        id: 'deploy-3',
-        websiteId: 'website-123',
-        userId: 'user-123',
-        version: '1.0.2',
-        createdAt: new Date('2023-01-03').toISOString()
-      });
-      
-      // Deployment for different website
-      await deploymentService.createDeployment({
-        id: 'deploy-4',
-        websiteId: 'website-456',
-        userId: 'user-123',
-        version: '2.0.0'
-      });
-    });
-    
     it('should get deployments for a website with default pagination', async () => {
-      const result = await deploymentService.getDeployments('website-123');
+      // Mock data
+      const websiteId = 'website-123';
+      const mockDeployments = [
+        {
+          id: 'deployment-1',
+          websiteId,
+          status: 'success',
+          createdAt: new Date('2023-01-03')
+        },
+        {
+          id: 'deployment-2',
+          websiteId,
+          status: 'failed',
+          createdAt: new Date('2023-01-02')
+        }
+      ];
       
-      const deploymentIds = result.items.map(item => item.id);
-      expect(deploymentIds).toContain('deploy-1');
-      expect(deploymentIds).toContain('deploy-2');
-      expect(deploymentIds).toContain('deploy-3');
+      // Mock findAndCountAll response
+      Deployment.findAndCountAll.mockResolvedValue({
+        count: 2,
+        rows: mockDeployments
+      });
       
-      // We can't be certain about the length since there might be 
-      // other deployments from other tests, so we'll just check that 
-      // we have at least our 3 deployments
-      expect(result.items.length).toBeGreaterThanOrEqual(3);
+      // Call the service method
+      const result = await deploymentService.getDeployments(websiteId);
       
-      // Since the totalItems might vary, we'll just check the structure
-      expect(result.pagination).toHaveProperty('totalItems');
-      expect(result.pagination).toHaveProperty('itemsPerPage', 10);
-      expect(result.pagination).toHaveProperty('currentPage', 1);
-      expect(result.pagination).toHaveProperty('totalPages');
+      // Assertions
+      expect(Deployment.findAndCountAll).toHaveBeenCalledWith({
+        where: { websiteId },
+        limit: 10,
+        offset: 0,
+        order: [['createdAt', 'DESC']]
+      });
+      
+      expect(result).toEqual({
+        items: mockDeployments,
+        pagination: {
+          totalItems: 2,
+          itemsPerPage: 10,
+          currentPage: 1,
+          totalPages: 1
+        }
+      });
     });
     
     it('should respect pagination options', async () => {
-      const result = await deploymentService.getDeployments('website-123', { limit: 2, page: 1 });
+      // Mock data
+      const websiteId = 'website-123';
+      const options = { limit: 2, page: 2 };
+      const mockDeployments = [
+        { id: 'deployment-3', websiteId },
+        { id: 'deployment-4', websiteId }
+      ];
       
-      // Should have 2 items on first page
-      expect(result.items.length).toBe(2);
+      // Mock findAndCountAll response
+      Deployment.findAndCountAll.mockResolvedValue({
+        count: 6,
+        rows: mockDeployments
+      });
       
-      // Check pagination structure
-      expect(result.pagination).toHaveProperty('totalItems');
-      expect(result.pagination).toHaveProperty('itemsPerPage', 2);
-      expect(result.pagination).toHaveProperty('currentPage', 1);
-      expect(result.pagination).toHaveProperty('totalPages');
+      // Call the service method
+      const result = await deploymentService.getDeployments(websiteId, options);
       
-      // Test second page
-      const secondPage = await deploymentService.getDeployments('website-123', { limit: 2, page: 2 });
+      // Assertions
+      expect(Deployment.findAndCountAll).toHaveBeenCalledWith({
+        where: { websiteId },
+        limit: 2,
+        offset: 2, // Page 2 with limit 2
+        order: [['createdAt', 'DESC']]
+      });
       
-      // There should be at least 1 item on second page
-      expect(secondPage.items.length).toBeGreaterThanOrEqual(1);
-      
-      // Check pagination structure
-      expect(secondPage.pagination).toHaveProperty('totalItems');
-      expect(secondPage.pagination).toHaveProperty('itemsPerPage', 2);
-      expect(secondPage.pagination).toHaveProperty('currentPage', 2);
-      expect(secondPage.pagination).toHaveProperty('totalPages');
+      expect(result).toEqual({
+        items: mockDeployments,
+        pagination: {
+          totalItems: 6,
+          itemsPerPage: 2,
+          currentPage: 2,
+          totalPages: 3 // 6 items with 2 per page = 3 pages
+        }
+      });
     });
     
-    it('should filter deployments by websiteId', async () => {
+    it('should handle empty results', async () => {
+      // Mock findAndCountAll response for empty results
+      Deployment.findAndCountAll.mockResolvedValue({
+        count: 0,
+        rows: []
+      });
+      
+      // Call the service method
       const result = await deploymentService.getDeployments('website-456');
       
-      const deploymentIds = result.items.map(item => item.id);
-      expect(deploymentIds).toContain('deploy-4');
-      expect(deploymentIds).not.toContain('deploy-1');
-      expect(deploymentIds).not.toContain('deploy-2');
-      expect(deploymentIds).not.toContain('deploy-3');
+      // Assertions
+      expect(result).toEqual({
+        items: [],
+        pagination: {
+          totalItems: 0,
+          itemsPerPage: 10,
+          currentPage: 1,
+          totalPages: 0
+        }
+      });
     });
     
-    it('should return empty array if no deployments found', async () => {
-      const result = await deploymentService.getDeployments('non-existent-website');
+    it('should handle errors properly', async () => {
+      // Mock error
+      const mockError = new Error('Database error');
+      Deployment.findAndCountAll.mockRejectedValue(mockError);
       
-      expect(result.items.length).toBe(0);
-      expect(result.pagination.totalItems).toBe(0);
-      expect(result.pagination.totalPages).toBe(0);
+      // Call the service method and expect it to throw
+      await expect(deploymentService.getDeployments('website-123'))
+        .rejects.toThrow('Database error');
+      
+      expect(logger.error).toHaveBeenCalledWith('Error fetching deployments:', mockError);
     });
   });
   
   describe('getDeploymentById', () => {
-    beforeEach(async () => {
-      jest.clearAllMocks();
-      deployments.length = 0;
-      
-      await deploymentService.createDeployment({
-        id: 'deploy-1',
-        websiteId: 'website-123',
-        userId: 'user-123',
-        version: '1.0.0'
-      });
-    });
-    
     it('should return a deployment by ID', async () => {
-      const deployment = await deploymentService.getDeploymentById('deploy-1');
+      // Mock data
+      const deploymentId = 'deployment-123';
+      const mockDeployment = {
+        id: deploymentId,
+        websiteId: 'website-123',
+        status: 'success'
+      };
       
-      expect(deployment).toBeDefined();
-      expect(deployment.id).toBe('deploy-1');
-      expect(deployment.websiteId).toBe('website-123');
+      // Mock findByPk response
+      Deployment.findByPk.mockResolvedValue(mockDeployment);
+      
+      // Call the service method
+      const result = await deploymentService.getDeploymentById(deploymentId);
+      
+      // Assertions
+      expect(Deployment.findByPk).toHaveBeenCalledWith(deploymentId);
+      expect(result).toEqual(mockDeployment);
     });
     
     it('should return null if deployment not found', async () => {
-      const deployment = await deploymentService.getDeploymentById('non-existent-id');
+      // Mock findByPk response for not found
+      Deployment.findByPk.mockResolvedValue(null);
       
-      expect(deployment).toBeNull();
+      // Call the service method
+      const result = await deploymentService.getDeploymentById('non-existent-id');
+      
+      // Assertions
+      expect(result).toBeNull();
+    });
+    
+    it('should handle errors properly', async () => {
+      // Mock error
+      const mockError = new Error('Database error');
+      Deployment.findByPk.mockRejectedValue(mockError);
+      
+      // Call the service method and expect it to throw
+      await expect(deploymentService.getDeploymentById('deployment-123'))
+        .rejects.toThrow('Database error');
+      
+      expect(logger.error).toHaveBeenCalledWith('Error fetching deployment by ID:', mockError);
     });
   });
   
   describe('updateDeployment', () => {
-    beforeEach(async () => {
-      jest.clearAllMocks();
-      deployments.length = 0;
-      
-      await deploymentService.createDeployment({
-        id: 'deploy-1',
-        websiteId: 'website-123',
-        userId: 'user-123',
-        version: '1.0.0',
-        status: 'queued'
-      });
-    });
-    
     it('should update a deployment', async () => {
+      // Mock data
+      const deploymentId = 'deployment-123';
       const updates = {
-        status: 'in_progress',
-        errorMessage: 'Test error'
+        status: 'success',
+        completedAt: new Date(),
+        buildTime: 5000
       };
       
-      const updatedDeployment = await deploymentService.updateDeployment('deploy-1', updates);
+      // Mock findByPk response
+      const mockDeployment = {
+        id: deploymentId,
+        websiteId: 'website-123',
+        status: 'in_progress',
+        save: jest.fn().mockResolvedValue(true)
+      };
       
-      expect(updatedDeployment.status).toBe('in_progress');
-      expect(updatedDeployment.errorMessage).toBe('Test error');
-      expect(updatedDeployment.websiteId).toBe('website-123'); // Original data preserved
+      // Updated deployment after applying updates
+      const updatedDeployment = {
+        ...mockDeployment,
+        ...updates
+      };
+      
+      Deployment.findByPk.mockResolvedValue(mockDeployment);
+      
+      // Call the service method
+      const result = await deploymentService.updateDeployment(deploymentId, updates);
+      
+      // Assertions
+      expect(Deployment.findByPk).toHaveBeenCalledWith(deploymentId);
+      
+      // Check that the deployment object was updated
+      expect(mockDeployment.status).toBe('success');
+      expect(mockDeployment.completedAt).toEqual(updates.completedAt);
+      expect(mockDeployment.buildTime).toBe(5000);
+      
+      expect(mockDeployment.save).toHaveBeenCalled();
       expect(logger.info).toHaveBeenCalledWith(expect.stringContaining('Deployment updated'));
     });
     
     it('should return null if deployment not found', async () => {
-      jest.clearAllMocks();
-      const updates = { status: 'in_progress' };
+      // Mock findByPk response for not found
+      Deployment.findByPk.mockResolvedValue(null);
       
-      const result = await deploymentService.updateDeployment('non-existent-id', updates);
+      // Call the service method
+      const result = await deploymentService.updateDeployment('non-existent-id', { status: 'success' });
       
+      // Assertions
       expect(result).toBeNull();
       expect(logger.info).not.toHaveBeenCalled();
+    });
+    
+    it('should handle errors properly', async () => {
+      // Mock error
+      const mockError = new Error('Database error');
+      Deployment.findByPk.mockRejectedValue(mockError);
+      
+      // Call the service method and expect it to throw
+      await expect(deploymentService.updateDeployment('deployment-123', { status: 'success' }))
+        .rejects.toThrow('Database error');
+      
+      expect(logger.error).toHaveBeenCalledWith('Error updating deployment:', mockError);
     });
   });
   
   describe('getLatestSuccessfulDeployment', () => {
-    beforeEach(async () => {
-      jest.clearAllMocks();
-      deployments.length = 0;
-      
-      // Old successful deployment
-      await deploymentService.createDeployment({
-        id: 'deploy-1',
-        websiteId: 'website-123',
-        userId: 'user-123',
-        version: '1.0.0',
-        status: 'success',
-        createdAt: new Date('2023-01-01').toISOString()
-      });
-      
-      // Most recent successful deployment
-      await deploymentService.createDeployment({
-        id: 'deploy-2',
-        websiteId: 'website-123',
-        userId: 'user-123',
-        version: '1.0.1',
-        status: 'success',
-        createdAt: new Date('2023-01-02').toISOString()
-      });
-      
-      // Failed deployment
-      await deploymentService.createDeployment({
-        id: 'deploy-3',
-        websiteId: 'website-123',
-        userId: 'user-123',
-        version: '1.0.2',
-        status: 'failed',
-        createdAt: new Date('2023-01-03').toISOString()
-      });
-      
-      // Different website
-      await deploymentService.createDeployment({
-        id: 'deploy-4',
-        websiteId: 'website-456',
-        userId: 'user-123',
-        version: '2.0.0',
-        status: 'success'
-      });
-    });
-    
     it('should return the most recent successful deployment', async () => {
-      // We can't reliably test exact order since it depends on the implementation
-      // Instead, we'll just check that it returns a successful deployment
-      const deployment = await deploymentService.getLatestSuccessfulDeployment('website-123');
+      // Mock data
+      const websiteId = 'website-123';
+      const mockDeployment = {
+        id: 'deployment-latest',
+        websiteId,
+        status: 'success',
+        createdAt: new Date()
+      };
       
-      expect(deployment).toBeDefined();
-      expect(deployment.status).toBe('success');
-      expect(deployment.websiteId).toBe('website-123');
+      // Mock findOne response
+      Deployment.findOne.mockResolvedValue(mockDeployment);
+      
+      // Call the service method
+      const result = await deploymentService.getLatestSuccessfulDeployment(websiteId);
+      
+      // Assertions
+      expect(Deployment.findOne).toHaveBeenCalledWith({
+        where: {
+          websiteId,
+          status: 'success'
+        },
+        order: [['createdAt', 'DESC']]
+      });
+      
+      expect(result).toEqual(mockDeployment);
     });
     
     it('should return null if no successful deployments found', async () => {
-      // Create a website with only failed deployments
-      await deploymentService.createDeployment({
-        id: 'deploy-5',
-        websiteId: 'website-789',
-        userId: 'user-123',
-        version: '3.0.0',
-        status: 'failed'
-      });
+      // Mock findOne response for not found
+      Deployment.findOne.mockResolvedValue(null);
       
-      const deployment = await deploymentService.getLatestSuccessfulDeployment('website-789');
+      // Call the service method
+      const result = await deploymentService.getLatestSuccessfulDeployment('website-123');
       
-      expect(deployment).toBeNull();
+      // Assertions
+      expect(result).toBeNull();
+    });
+    
+    it('should handle errors properly', async () => {
+      // Mock error
+      const mockError = new Error('Database error');
+      Deployment.findOne.mockRejectedValue(mockError);
+      
+      // Call the service method and expect it to throw
+      await expect(deploymentService.getLatestSuccessfulDeployment('website-123'))
+        .rejects.toThrow('Database error');
+      
+      expect(logger.error).toHaveBeenCalledWith('Error fetching latest successful deployment:', mockError);
     });
   });
   
   describe('hasActiveDeployments', () => {
-    beforeEach(() => {
-      jest.clearAllMocks();
-      deployments.length = 0;
-    });
-    
-    it('should return true if website has queued deployments', async () => {
-      await deploymentService.createDeployment({
-        id: 'deploy-1',
-        websiteId: 'website-123',
-        userId: 'user-123',
-        version: '1.0.0',
-        status: 'queued'
+    it('should return true if website has active deployments', async () => {
+      // Mock data
+      const websiteId = 'website-123';
+      
+      // Mock count response
+      Deployment.count.mockResolvedValue(2); // 2 active deployments
+      
+      // Call the service method
+      const result = await deploymentService.hasActiveDeployments(websiteId);
+      
+      // Assertions
+      expect(Deployment.count).toHaveBeenCalledWith({
+        where: {
+          websiteId,
+          status: {
+            [Op.in]: ['queued', 'in_progress']
+          }
+        }
       });
       
-      const hasActive = await deploymentService.hasActiveDeployments('website-123');
-      
-      expect(hasActive).toBe(true);
-    });
-    
-    it('should return true if website has in_progress deployments', async () => {
-      await deploymentService.createDeployment({
-        id: 'deploy-2',
-        websiteId: 'website-456',
-        userId: 'user-123',
-        version: '1.0.0',
-        status: 'in_progress'
-      });
-      
-      const hasActive = await deploymentService.hasActiveDeployments('website-456');
-      
-      expect(hasActive).toBe(true);
+      expect(result).toBe(true);
     });
     
     it('should return false if website has no active deployments', async () => {
-      await deploymentService.createDeployment({
-        id: 'deploy-3',
-        websiteId: 'website-789',
-        userId: 'user-123',
-        version: '1.0.0',
-        status: 'success'
-      });
+      // Mock count response for no active deployments
+      Deployment.count.mockResolvedValue(0);
       
-      await deploymentService.createDeployment({
-        id: 'deploy-4',
-        websiteId: 'website-789',
-        userId: 'user-123',
-        version: '1.0.1',
-        status: 'failed'
-      });
+      // Call the service method
+      const result = await deploymentService.hasActiveDeployments('website-123');
       
-      const hasActive = await deploymentService.hasActiveDeployments('website-789');
-      
-      expect(hasActive).toBe(false);
+      // Assertions
+      expect(result).toBe(false);
     });
     
-    it('should return false if website has no deployments', async () => {
-      const hasActive = await deploymentService.hasActiveDeployments('non-existent-website');
+    it('should handle errors properly', async () => {
+      // Mock error
+      const mockError = new Error('Database error');
+      Deployment.count.mockRejectedValue(mockError);
       
-      expect(hasActive).toBe(false);
+      // Call the service method and expect it to throw
+      await expect(deploymentService.hasActiveDeployments('website-123'))
+        .rejects.toThrow('Database error');
+      
+      expect(logger.error).toHaveBeenCalledWith('Error checking for active deployments:', mockError);
     });
   });
 });

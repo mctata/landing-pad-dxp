@@ -1,7 +1,17 @@
 const websiteService = require('../../src/services/websiteService');
+const { Website } = require('../../src/models');
 const logger = require('../../src/utils/logger');
 
-// Mock the logger
+// Mock the models and logger
+jest.mock('../../src/models', () => ({
+  Website: {
+    create: jest.fn(),
+    findOne: jest.fn(),
+    findAndCountAll: jest.fn(),
+    destroy: jest.fn()
+  }
+}));
+
 jest.mock('../../src/utils/logger', () => ({
   info: jest.fn(),
   error: jest.fn(),
@@ -13,43 +23,68 @@ describe('Website Service', () => {
   beforeEach(() => {
     // Reset all mocks
     jest.clearAllMocks();
-    
-    // Preserve the demo website but reset any other websites
-    // This is more complicated due to the demo website in the initial array
-    const websitesArray = websiteService.getWebsiteById.__self?.websites || [];
-    const demoWebsite = websitesArray.find(w => w.id === 'demo-website');
-    websitesArray.length = 0;
-    if (demoWebsite) {
-      websitesArray.push(demoWebsite);
-    }
   });
   
   describe('getWebsiteById', () => {
     it('should return a website by ID for correct user', async () => {
-      const website = await websiteService.getWebsiteById('demo-website', 'user-1');
+      // Mock data
+      const websiteId = 'website-123';
+      const userId = 'user-123';
+      const mockWebsite = {
+        id: websiteId,
+        userId,
+        name: 'Test Website',
+        description: 'A test website',
+        status: 'draft'
+      };
       
-      expect(website).toBeDefined();
-      expect(website.id).toBe('demo-website');
-      expect(website.name).toBe('Demo Website');
+      // Mock findOne response
+      Website.findOne.mockResolvedValue(mockWebsite);
+      
+      // Call the service method
+      const result = await websiteService.getWebsiteById(websiteId, userId);
+      
+      // Assertions
+      expect(Website.findOne).toHaveBeenCalledWith({
+        where: {
+          id: websiteId,
+          userId
+        }
+      });
+      
+      expect(result).toEqual(mockWebsite);
     });
     
     it('should return null if website not found', async () => {
-      const website = await websiteService.getWebsiteById('non-existent-id', 'user-1');
+      // Mock findOne response for not found
+      Website.findOne.mockResolvedValue(null);
       
-      expect(website).toBeNull();
+      // Call the service method
+      const result = await websiteService.getWebsiteById('non-existent-id', 'user-123');
+      
+      // Assertions
+      expect(result).toBeNull();
     });
     
-    it('should return null if website belongs to different user', async () => {
-      const website = await websiteService.getWebsiteById('demo-website', 'different-user');
+    it('should handle errors properly', async () => {
+      // Mock error
+      const mockError = new Error('Database error');
+      Website.findOne.mockRejectedValue(mockError);
       
-      expect(website).toBeNull();
+      // Call the service method and expect it to throw
+      await expect(websiteService.getWebsiteById('website-123', 'user-123'))
+        .rejects.toThrow('Database error');
+      
+      expect(logger.error).toHaveBeenCalledWith('Error fetching website by ID:', mockError);
     });
   });
   
   describe('updateWebsite', () => {
     it('should update a website', async () => {
+      // Mock data
+      const websiteId = 'website-123';
       const updates = {
-        name: 'Updated Demo Website',
+        name: 'Updated Website',
         description: 'Updated description',
         settings: {
           colors: {
@@ -58,38 +93,64 @@ describe('Website Service', () => {
         }
       };
       
-      const updatedWebsite = await websiteService.updateWebsite('demo-website', updates);
+      // Mock findOne response
+      const mockWebsite = {
+        id: websiteId,
+        userId: 'user-123',
+        name: 'Test Website',
+        description: 'A test website',
+        settings: {
+          colors: {
+            primary: '#0000FF',
+            secondary: '#1E293B'
+          },
+          fonts: {
+            heading: 'Inter',
+            body: 'Inter'
+          },
+          globalStyles: {
+            borderRadius: '0.5rem',
+            buttonStyle: 'rounded'
+          }
+        },
+        save: jest.fn().mockResolvedValue(true)
+      };
       
-      expect(updatedWebsite.name).toBe('Updated Demo Website');
-      expect(updatedWebsite.description).toBe('Updated description');
-      expect(updatedWebsite.settings.colors.primary).toBe('#FF0000');
-      expect(updatedWebsite.settings.colors.secondary).toBe('#1E293B'); // Unchanged values preserved
+      Website.findOne.mockResolvedValue(mockWebsite);
+      
+      // Call the service method
+      const result = await websiteService.updateWebsite(websiteId, updates);
+      
+      // Assertions
+      expect(Website.findOne).toHaveBeenCalledWith({
+        where: { id: websiteId }
+      });
+      
+      // Check that the website object was updated
+      expect(mockWebsite.name).toBe('Updated Website');
+      expect(mockWebsite.description).toBe('Updated description');
+      expect(mockWebsite.settings.colors.primary).toBe('#FF0000');
+      expect(mockWebsite.settings.colors.secondary).toBe('#1E293B'); // Should be preserved
+      
+      expect(mockWebsite.save).toHaveBeenCalled();
       expect(logger.info).toHaveBeenCalledWith(expect.stringContaining('Website updated'));
     });
     
-    it('should update the updatedAt timestamp', async () => {
-      const originalWebsite = await websiteService.getWebsiteById('demo-website', 'user-1');
-      const originalTimestamp = originalWebsite.updatedAt;
-      
-      // Wait a bit to ensure timestamp difference
-      await new Promise(resolve => setTimeout(resolve, 10));
-      
-      const updates = { name: 'Updated Name' };
-      const updatedWebsite = await websiteService.updateWebsite('demo-website', updates);
-      
-      expect(updatedWebsite.updatedAt).not.toBe(originalTimestamp);
-    });
-    
     it('should return null if website not found', async () => {
-      const updates = { name: 'Updated Name' };
+      // Mock findOne response for not found
+      Website.findOne.mockResolvedValue(null);
       
-      const result = await websiteService.updateWebsite('non-existent-id', updates);
+      // Call the service method
+      const result = await websiteService.updateWebsite('non-existent-id', { name: 'Updated Name' });
       
+      // Assertions
       expect(result).toBeNull();
       expect(logger.info).not.toHaveBeenCalled();
     });
     
     it('should deeply merge settings objects', async () => {
+      // Mock data
+      const websiteId = 'website-123';
       const updates = {
         settings: {
           colors: {
@@ -104,157 +165,280 @@ describe('Website Service', () => {
         }
       };
       
-      const updatedWebsite = await websiteService.updateWebsite('demo-website', updates);
+      // Mock findOne response
+      const mockWebsite = {
+        id: websiteId,
+        userId: 'user-123',
+        settings: {
+          colors: {
+            primary: '#0000FF',
+            secondary: '#1E293B'
+          },
+          fonts: {
+            heading: 'Inter',
+            body: 'Inter'
+          },
+          globalStyles: {
+            borderRadius: '0.5rem',
+            buttonStyle: 'rounded'
+          }
+        },
+        save: jest.fn().mockResolvedValue(true)
+      };
       
-      expect(updatedWebsite.settings.colors.primary).toBe('#FF0000');
-      expect(updatedWebsite.settings.colors.secondary).toBe('#1E293B'); // Unchanged
-      expect(updatedWebsite.settings.fonts.heading).toBe('Inter'); // Unchanged
-      expect(updatedWebsite.settings.fonts.body).toBe('Inter'); // Unchanged
-      expect(updatedWebsite.settings.globalStyles.borderRadius).toBe('1rem'); // Updated
-      expect(updatedWebsite.settings.globalStyles.buttonStyle).toBe('rounded'); // Unchanged
+      Website.findOne.mockResolvedValue(mockWebsite);
+      
+      // Call the service method
+      const result = await websiteService.updateWebsite(websiteId, updates);
+      
+      // Assertions
+      // Check that the settings were properly merged
+      expect(mockWebsite.settings.colors.primary).toBe('#FF0000');
+      expect(mockWebsite.settings.colors.secondary).toBe('#1E293B'); // Unchanged
+      expect(mockWebsite.settings.fonts.heading).toBe('Inter'); // Unchanged
+      expect(mockWebsite.settings.fonts.body).toBe('Inter'); // Unchanged
+      expect(mockWebsite.settings.globalStyles.borderRadius).toBe('1rem'); // Updated
+      expect(mockWebsite.settings.globalStyles.buttonStyle).toBe('rounded'); // Unchanged
+    });
+    
+    it('should handle errors properly', async () => {
+      // Mock error
+      const mockError = new Error('Database error');
+      Website.findOne.mockRejectedValue(mockError);
+      
+      // Call the service method and expect it to throw
+      await expect(websiteService.updateWebsite('website-123', { name: 'Updated Name' }))
+        .rejects.toThrow('Database error');
+      
+      expect(logger.error).toHaveBeenCalledWith('Error updating website:', mockError);
     });
   });
   
   describe('getWebsitesByUserId', () => {
-    beforeEach(async () => {
-      // Create test websites
-      await websiteService.createWebsite({
-        id: 'website-1',
-        userId: 'user-123',
-        name: 'Website 1',
-        description: 'Description 1',
-        status: 'draft',
-        updatedAt: new Date('2023-01-01').toISOString()
-      });
-      
-      await websiteService.createWebsite({
-        id: 'website-2',
-        userId: 'user-123',
-        name: 'Website 2',
-        description: 'Description 2',
-        status: 'published',
-        updatedAt: new Date('2023-01-03').toISOString()
-      });
-      
-      await websiteService.createWebsite({
-        id: 'website-3',
-        userId: 'user-123',
-        name: 'Website 3',
-        description: 'Description 3',
-        status: 'draft',
-        updatedAt: new Date('2023-01-02').toISOString()
-      });
-      
-      // Website for different user
-      await websiteService.createWebsite({
-        id: 'website-4',
-        userId: 'user-456',
-        name: 'Website 4',
-        description: 'Description 4'
-      });
-    });
-    
     it('should get websites for a user with default pagination', async () => {
-      const result = await websiteService.getWebsitesByUserId('user-123');
+      // Mock data
+      const userId = 'user-123';
+      const mockWebsites = [
+        {
+          id: 'website-1',
+          userId,
+          name: 'Website 1',
+          updatedAt: new Date('2023-01-01')
+        },
+        {
+          id: 'website-2',
+          userId,
+          name: 'Website 2',
+          updatedAt: new Date('2023-01-02')
+        }
+      ];
       
-      expect(result.items.length).toBe(3);
-      expect(result.items[0].id).toBe('website-2'); // Most recent first
-      expect(result.items[1].id).toBe('website-3');
-      expect(result.items[2].id).toBe('website-1');
+      // Mock findAndCountAll response
+      Website.findAndCountAll.mockResolvedValue({
+        count: 2,
+        rows: mockWebsites
+      });
       
-      expect(result.pagination).toEqual({
-        totalItems: 3,
-        itemsPerPage: 10,
-        currentPage: 1,
-        totalPages: 1
+      // Call the service method
+      const result = await websiteService.getWebsitesByUserId(userId);
+      
+      // Assertions
+      expect(Website.findAndCountAll).toHaveBeenCalledWith({
+        where: { userId },
+        limit: 10,
+        offset: 0,
+        order: [['updatedAt', 'DESC']],
+        // No status filter
+      });
+      
+      expect(result).toEqual({
+        items: mockWebsites,
+        pagination: {
+          totalItems: 2,
+          itemsPerPage: 10,
+          currentPage: 1,
+          totalPages: 1
+        }
       });
     });
     
     it('should respect pagination options', async () => {
-      const result = await websiteService.getWebsitesByUserId('user-123', { limit: 2, page: 1 });
+      // Mock data
+      const userId = 'user-123';
+      const options = { limit: 2, page: 2 };
+      const mockWebsites = [
+        {
+          id: 'website-3',
+          userId,
+          name: 'Website 3'
+        },
+        {
+          id: 'website-4',
+          userId,
+          name: 'Website 4'
+        }
+      ];
       
-      expect(result.items.length).toBe(2);
-      expect(result.items[0].id).toBe('website-2'); // Most recent first
-      expect(result.items[1].id).toBe('website-3');
-      
-      expect(result.pagination).toEqual({
-        totalItems: 3,
-        itemsPerPage: 2,
-        currentPage: 1,
-        totalPages: 2
+      // Mock findAndCountAll response
+      Website.findAndCountAll.mockResolvedValue({
+        count: 6,
+        rows: mockWebsites
       });
       
-      // Test second page
-      const secondPage = await websiteService.getWebsitesByUserId('user-123', { limit: 2, page: 2 });
+      // Call the service method
+      const result = await websiteService.getWebsitesByUserId(userId, options);
       
-      expect(secondPage.items.length).toBe(1);
-      expect(secondPage.items[0].id).toBe('website-1');
+      // Assertions
+      expect(Website.findAndCountAll).toHaveBeenCalledWith({
+        where: { userId },
+        limit: 2,
+        offset: 2, // Page 2 with limit 2
+        order: [['updatedAt', 'DESC']],
+        // No status filter
+      });
       
-      expect(secondPage.pagination).toEqual({
-        totalItems: 3,
-        itemsPerPage: 2,
-        currentPage: 2,
-        totalPages: 2
+      expect(result).toEqual({
+        items: mockWebsites,
+        pagination: {
+          totalItems: 6,
+          itemsPerPage: 2,
+          currentPage: 2,
+          totalPages: 3 // 6 items with 2 per page = 3 pages
+        }
       });
     });
     
     it('should filter websites by status', async () => {
-      const result = await websiteService.getWebsitesByUserId('user-123', { status: 'draft' });
+      // Mock data
+      const userId = 'user-123';
+      const options = { status: 'draft' };
+      const mockWebsites = [
+        {
+          id: 'website-1',
+          userId,
+          name: 'Website 1',
+          status: 'draft'
+        }
+      ];
       
-      expect(result.items.length).toBe(2);
-      expect(result.items[0].id).toBe('website-3'); // Most recent draft first
-      expect(result.items[1].id).toBe('website-1');
+      // Mock findAndCountAll response
+      Website.findAndCountAll.mockResolvedValue({
+        count: 1,
+        rows: mockWebsites
+      });
+      
+      // Call the service method
+      const result = await websiteService.getWebsitesByUserId(userId, options);
+      
+      // Assertions
+      expect(Website.findAndCountAll).toHaveBeenCalledWith({
+        where: {
+          userId,
+          status: 'draft'
+        },
+        limit: 10,
+        offset: 0,
+        order: [['updatedAt', 'DESC']]
+      });
+      
+      expect(result.items).toEqual(mockWebsites);
     });
     
-    it('should return empty array if no websites found', async () => {
+    it('should handle empty results', async () => {
+      // Mock findAndCountAll response for empty results
+      Website.findAndCountAll.mockResolvedValue({
+        count: 0,
+        rows: []
+      });
+      
+      // Call the service method
       const result = await websiteService.getWebsitesByUserId('non-existent-user');
       
-      expect(result.items.length).toBe(0);
-      expect(result.pagination.totalItems).toBe(0);
-      expect(result.pagination.totalPages).toBe(0);
+      // Assertions
+      expect(result).toEqual({
+        items: [],
+        pagination: {
+          totalItems: 0,
+          itemsPerPage: 10,
+          currentPage: 1,
+          totalPages: 0
+        }
+      });
+    });
+    
+    it('should handle errors properly', async () => {
+      // Mock error
+      const mockError = new Error('Database error');
+      Website.findAndCountAll.mockRejectedValue(mockError);
+      
+      // Call the service method and expect it to throw
+      await expect(websiteService.getWebsitesByUserId('user-123'))
+        .rejects.toThrow('Database error');
+      
+      expect(logger.error).toHaveBeenCalledWith('Error fetching websites by user ID:', mockError);
     });
   });
   
   describe('createWebsite', () => {
     it('should create a website with required fields', async () => {
-      const data = {
+      // Mock data
+      const websiteData = {
         userId: 'user-123',
         name: 'New Website'
       };
       
-      const website = await websiteService.createWebsite(data);
-      
-      expect(website).toMatchObject({
+      // Mock create response
+      const mockWebsite = {
+        id: 'website-123',
         userId: 'user-123',
         name: 'New Website',
         description: '',
         status: 'draft',
-        lastPublishedAt: null
+        lastPublishedAt: null,
+        settings: {
+          colors: {
+            primary: '#3B82F6',
+            secondary: '#1E293B'
+          },
+          fonts: {
+            heading: 'Inter',
+            body: 'Inter'
+          },
+          globalStyles: {
+            borderRadius: '0.5rem',
+            buttonStyle: 'rounded'
+          }
+        },
+        createdAt: new Date(),
+        updatedAt: new Date()
+      };
+      
+      Website.create.mockResolvedValue(mockWebsite);
+      
+      // Call the service method
+      const result = await websiteService.createWebsite(websiteData);
+      
+      // Assertions
+      expect(Website.create).toHaveBeenCalledWith({
+        userId: 'user-123',
+        name: 'New Website',
+        description: '',
+        status: 'draft',
+        lastPublishedAt: null,
+        settings: expect.objectContaining({
+          colors: expect.any(Object),
+          fonts: expect.any(Object),
+          globalStyles: expect.any(Object)
+        })
       });
-      expect(website.id).toBeDefined();
-      expect(website.createdAt).toBeDefined();
-      expect(website.updatedAt).toBeDefined();
-      expect(website.settings).toBeDefined();
-      expect(website.settings.colors).toBeDefined();
-      expect(website.settings.fonts).toBeDefined();
-      expect(website.settings.globalStyles).toBeDefined();
+      
+      expect(result).toEqual(mockWebsite);
       expect(logger.info).toHaveBeenCalledWith(expect.stringContaining('Website created'));
     });
     
-    it('should use provided ID if specified', async () => {
-      const data = {
-        id: 'custom-id-123',
-        userId: 'user-123',
-        name: 'Custom ID Website'
-      };
-      
-      const website = await websiteService.createWebsite(data);
-      
-      expect(website.id).toBe('custom-id-123');
-    });
-    
     it('should use provided settings if specified', async () => {
-      const data = {
+      // Mock data
+      const websiteData = {
         userId: 'user-123',
         name: 'Custom Settings Website',
         description: 'A website with custom settings',
@@ -274,53 +458,125 @@ describe('Website Service', () => {
         }
       };
       
-      const website = await websiteService.createWebsite(data);
+      // Mock create response
+      const mockWebsite = {
+        id: 'website-123',
+        ...websiteData,
+        status: 'draft',
+        lastPublishedAt: null,
+        createdAt: new Date(),
+        updatedAt: new Date()
+      };
       
-      expect(website.settings.colors.primary).toBe('#FF0000');
-      expect(website.settings.colors.secondary).toBe('#00FF00');
-      expect(website.settings.fonts.heading).toBe('Roboto');
-      expect(website.settings.fonts.body).toBe('Arial');
-      expect(website.settings.globalStyles.borderRadius).toBe('0');
-      expect(website.settings.globalStyles.buttonStyle).toBe('square');
+      Website.create.mockResolvedValue(mockWebsite);
+      
+      // Call the service method
+      const result = await websiteService.createWebsite(websiteData);
+      
+      // Assertions
+      expect(Website.create).toHaveBeenCalledWith({
+        userId: 'user-123',
+        name: 'Custom Settings Website',
+        description: 'A website with custom settings',
+        status: 'draft',
+        lastPublishedAt: null,
+        settings: {
+          colors: {
+            primary: '#FF0000',
+            secondary: '#00FF00'
+          },
+          fonts: {
+            heading: 'Roboto',
+            body: 'Arial'
+          },
+          globalStyles: {
+            borderRadius: '0',
+            buttonStyle: 'square'
+          }
+        }
+      });
+      
+      expect(result.settings.colors.primary).toBe('#FF0000');
+      expect(result.settings.fonts.heading).toBe('Roboto');
+    });
+    
+    it('should handle errors properly', async () => {
+      // Mock error
+      const mockError = new Error('Database error');
+      Website.create.mockRejectedValue(mockError);
+      
+      // Call the service method and expect it to throw
+      await expect(websiteService.createWebsite({
+        userId: 'user-123',
+        name: 'New Website'
+      })).rejects.toThrow('Database error');
+      
+      expect(logger.error).toHaveBeenCalledWith('Error creating website:', mockError);
     });
   });
   
   describe('deleteWebsite', () => {
-    beforeEach(async () => {
-      await websiteService.createWebsite({
-        id: 'website-to-delete',
-        userId: 'user-123',
-        name: 'Website To Delete'
-      });
-    });
-    
     it('should delete a website by ID for correct user', async () => {
-      const result = await websiteService.deleteWebsite('website-to-delete', 'user-123');
+      // Mock data
+      const websiteId = 'website-123';
+      const userId = 'user-123';
+      
+      // Mock findOne response
+      const mockWebsite = {
+        id: websiteId,
+        userId,
+        name: 'Website To Delete'
+      };
+      
+      // Mock destroy response
+      Website.findOne.mockResolvedValue(mockWebsite);
+      Website.destroy.mockResolvedValue(1); // 1 row affected
+      
+      // Call the service method
+      const result = await websiteService.deleteWebsite(websiteId, userId);
+      
+      // Assertions
+      expect(Website.findOne).toHaveBeenCalledWith({
+        where: {
+          id: websiteId,
+          userId
+        }
+      });
+      
+      expect(Website.destroy).toHaveBeenCalledWith({
+        where: {
+          id: websiteId,
+          userId
+        }
+      });
       
       expect(result).toBe(true);
       expect(logger.info).toHaveBeenCalledWith(expect.stringContaining('Website deleted'));
-      
-      // Verify website is removed
-      const website = await websiteService.getWebsiteById('website-to-delete', 'user-123');
-      expect(website).toBeNull();
     });
     
     it('should return false if website not found', async () => {
+      // Mock findOne response for not found
+      Website.findOne.mockResolvedValue(null);
+      
+      // Call the service method
       const result = await websiteService.deleteWebsite('non-existent-id', 'user-123');
       
+      // Assertions
       expect(result).toBe(false);
+      expect(Website.destroy).not.toHaveBeenCalled();
       expect(logger.info).not.toHaveBeenCalled();
     });
     
-    it('should return false if website belongs to different user', async () => {
-      const result = await websiteService.deleteWebsite('website-to-delete', 'different-user');
+    it('should handle errors properly', async () => {
+      // Mock error
+      const mockError = new Error('Database error');
+      Website.findOne.mockRejectedValue(mockError);
       
-      expect(result).toBe(false);
-      expect(logger.info).not.toHaveBeenCalled();
+      // Call the service method and expect it to throw
+      await expect(websiteService.deleteWebsite('website-123', 'user-123'))
+        .rejects.toThrow('Database error');
       
-      // Verify website still exists
-      const website = await websiteService.getWebsiteById('website-to-delete', 'user-123');
-      expect(website).toBeDefined();
+      expect(logger.error).toHaveBeenCalledWith('Error deleting website:', mockError);
     });
   });
 });
