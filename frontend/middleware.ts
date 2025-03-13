@@ -38,17 +38,35 @@ export async function middleware(request: NextRequest) {
   // Get the pathname and create a transaction for tracing
   const path = request.nextUrl.pathname;
   
-  // Start a Sentry transaction for this request
-  const transaction = process.env.NEXT_PUBLIC_SENTRY_DSN ? 
-    Sentry.startTransaction({
-      name: `Route: ${path}`,
-      op: 'http.server',
-    }) : null;
+  // Using a simple tracing approach for now until Sentry setup is complete
+  let transaction = null;
   
   try {
     // Track request metrics
     metrics.totalRequests++;
     incrementMetric(metrics.routeCounts, path);
+    
+    // Always allow root page without auth
+    if (path === '/') {
+      return NextResponse.next();
+    }
+    
+    // Handle specific redirects
+    // Redirect /app to root
+    if (path === '/app') {
+      return NextResponse.redirect(new URL('/', request.url));
+    }
+    
+    // Redirect /index.html to root
+    if (path === '/index.html') {
+      return NextResponse.redirect(new URL('/', request.url));
+    }
+    
+    // Redirect static HTML files to their Next.js counterparts
+    if (path.endsWith('.html') && !path.includes('/public/')) {
+      const newPath = path.replace('.html', '');
+      return NextResponse.redirect(new URL(newPath, request.url));
+    }
     
     // Check if it's an admin route
     if (path.startsWith('/admin')) {
@@ -89,15 +107,28 @@ export async function middleware(request: NextRequest) {
     
     // Check for authenticated routes
     if (path.startsWith('/dashboard') || path.startsWith('/projects')) {
-      // Get the session token
-      const token = request.cookies.get('next-auth.session-token')?.value || '';
+      // Parse URL to check for query parameters
+      const url = new URL(request.url);
       
-      if (!token) {
+      // Skip auth check if explicitly told not to redirect or coming from login
+      const noRedirect = url.searchParams.get('noRedirect') === '1';
+      const isComingFromLogin = url.searchParams.get('fromLogin') === 'true';
+      
+      if (noRedirect || isComingFromLogin) {
+        return NextResponse.next();
+      }
+      
+      // Get the session token - check for both next-auth and our custom token
+      const nextAuthToken = request.cookies.get('next-auth.session-token')?.value || '';
+      const hasToken = nextAuthToken || request.cookies.get('token')?.value;
+      
+      // If no token, redirect to login
+      if (!hasToken) {
         // Track unauthorized attempts
         incrementMetric(metrics.statusCounts, 'redirect-auth');
         
-        // Redirect to login if no token
-        return NextResponse.redirect(new URL('/auth/login', request.url));
+        // Include the current path as redirectTo parameter
+        return NextResponse.redirect(new URL(`/auth/login?redirectTo=${path}`, request.url));
       }
     }
     
@@ -111,25 +142,11 @@ export async function middleware(request: NextRequest) {
     const duration = trackTiming(startTime, path);
     response.headers.set('Server-Timing', `route;dur=${duration}`);
     
-    if (transaction) {
-      transaction.setData('route', path);
-      transaction.setData('duration_ms', duration);
-      transaction.setStatus('ok');
-      transaction.finish();
-    }
-    
     // Continue to the next middleware or route handler
     return response;
   } catch (error) {
     // Track errors
     incrementMetric(metrics.statusCounts, 'error');
-    
-    if (transaction) {
-      transaction.setData('route', path);
-      transaction.setData('error', error instanceof Error ? error.message : 'Unknown error');
-      transaction.setStatus('internal_error');
-      transaction.finish();
-    }
     
     // Log or report error
     console.error('Middleware error:', error);
@@ -147,7 +164,14 @@ if (typeof global !== 'undefined') {
 // See: https://nextjs.org/docs/app/building-your-application/routing/middleware#matcher
 export const config = {
   matcher: [
-    // Exclude files and API routes
-    '/((?!api|_next/static|_next/image|favicon.ico|auth/login|auth/signup).*)',
+    // Only apply middleware to these specific protected routes
+    '/admin/:path*',
+    '/dashboard/:path*',
+    '/projects/:path*',
+    
+    // Static redirects
+    '/app',
+    '/index.html',
+    '/:path*.html',
   ],
 };

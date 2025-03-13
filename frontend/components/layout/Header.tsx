@@ -9,7 +9,7 @@ import { useAuth } from '@/lib/auth/auth-context';
 export function Header() {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const pathname = usePathname();
-  const { user, isLoading } = useAuth();
+  const { user, isLoading, logout } = useAuth();
 
   const isActive = (path: string) => {
     return pathname === path;
@@ -80,12 +80,12 @@ export function Header() {
                     Admin
                   </Link>
                 )}
-                <Link 
-                  href="/account" 
+                <button
+                  onClick={() => logout()}
                   className="text-sm font-medium bg-secondary-100 px-4 py-2 rounded-md hover:bg-secondary-200 transition-colors"
                 >
-                  Account
-                </Link>
+                  Logout
+                </button>
               </div>
             ) : (
               <>
@@ -177,13 +177,15 @@ export function Header() {
                         Admin Dashboard
                       </Link>
                     )}
-                    <Link 
-                      href="/account" 
+                    <button
+                      onClick={() => {
+                        setIsMobileMenuOpen(false);
+                        logout();
+                      }}
                       className="text-sm font-medium bg-secondary-100 px-4 py-2 rounded-md hover:bg-secondary-200 transition-colors"
-                      onClick={() => setIsMobileMenuOpen(false)}
                     >
-                      Account
-                    </Link>
+                      Logout
+                    </button>
                   </>
                 ) : (
                   <>

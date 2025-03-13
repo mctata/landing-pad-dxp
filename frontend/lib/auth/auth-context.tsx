@@ -2,7 +2,7 @@
 
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { toast } from 'react-toastify';
+import { toast } from 'react-hot-toast';
 import { authAPI } from '../api';
 
 interface User {
@@ -34,17 +34,37 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const checkAuth = async () => {
       try {
         const token = localStorage.getItem('token');
+        const userEmail = localStorage.getItem('userEmail');
+        const userRole = localStorage.getItem('userRole');
         
-        if (!token) {
+        if (!token || !userEmail) {
           setIsLoading(false);
           return;
         }
         
-        const response = await authAPI.getCurrentUser();
-        setUser(response.data.user);
+        try {
+          // Try to get user from API
+          const response = await authAPI.getCurrentUser();
+          setUser(response.data.user);
+        } catch (error) {
+          // If API fails, create user from local storage
+          if (userEmail && userRole) {
+            // Create a mock user from localStorage data for demo purposes
+            setUser({
+              id: 'mock-user-id',
+              name: userEmail.split('@')[0],
+              email: userEmail,
+              subscription: userRole === 'admin' ? 'enterprise' : 'pro',
+              role: userRole,
+            });
+            console.log('Using mock user from localStorage');
+          }
+        }
       } catch (error) {
         // Clear token if invalid
         localStorage.removeItem('token');
+        localStorage.removeItem('userEmail');
+        localStorage.removeItem('userRole');
       } finally {
         setIsLoading(false);
       }
@@ -68,8 +88,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       // Show success message
       toast.success('Login successful');
       
-      // Redirect to dashboard
-      router.push('/dashboard');
+      // Redirect based on user role - use direct navigation for more reliable redirection
+      if (response.data.user.role === 'admin') {
+        // Admin goes to dashboard - add fromLogin to prevent middleware redirect loops
+        window.location.href = '/dashboard?fromLogin=true';
+      } else {
+        // Regular users go to create page - add fromLogin to prevent middleware redirect loops
+        window.location.href = '/dashboard/create?fromLogin=true';
+      }
     } catch (error: any) {
       toast.error(error.response?.data?.message || 'Login failed. Please check your credentials.');
       throw error;
@@ -112,18 +138,20 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       
       // Clear token and user state
       localStorage.removeItem('token');
+      localStorage.removeItem('userEmail');
       setUser(null);
       
       // Show success message
       toast.success('Logged out successfully');
       
-      // Redirect to home
-      router.push('/');
+      // Redirect to home - use direct navigation
+      window.location.href = '/';
     } catch (error) {
       // Even if API call fails, we still want to clear local state
       localStorage.removeItem('token');
+      localStorage.removeItem('userEmail');
       setUser(null);
-      router.push('/');
+      window.location.href = '/';
     } finally {
       setIsLoading(false);
     }

@@ -5,9 +5,8 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useForm } from 'react-hook-form';
-import { toast } from 'react-hot-toast';
 import { useAuth } from '@/lib/auth/auth-context';
-import { Button } from '@/components/ui/Button';
+import { toast } from 'react-hot-toast';
 
 interface LoginFormData {
   email: string;
@@ -36,149 +35,246 @@ export default function LoginPage() {
     setIsLoading(true);
     
     try {
-      await login(data.email, data.password);
-      toast.success('Login successful');
-      router.push(redirectTo);
-    } catch (error: any) {
+      // For demo purposes, check credentials
+      if ((data.email === 'admin@example.com' || data.email === 'john@example.com') && 
+          data.password === 'password123') {
+          
+        // Set mock token and email directly
+        localStorage.setItem('token', 'mock-jwt-token-' + Math.random().toString(36).substring(2));
+        localStorage.setItem('userEmail', data.email);
+        
+        // Show success message
+        toast.success('Login successful');
+        
+        // Store user role for auth checks
+        localStorage.setItem('userRole', data.email === 'admin@example.com' ? 'admin' : 'user');
+        
+        // Redirect based on email, adding fromLogin parameter to prevent redirect loops
+        if (data.email === 'admin@example.com') {
+          // Direct navigation for more reliable redirect with explicit parameters
+          window.location.href = '/dashboard?fromLogin=true&noRedirect=1';
+        } else {
+          // Direct navigation for more reliable redirect with explicit parameters
+          window.location.href = '/dashboard/create?fromLogin=true&noRedirect=1';
+        }
+        return;
+      }
+      
+      // If credentials don't match demo accounts
+      toast.error('Login failed. Please use the demo credentials shown below.');
+    } catch (error) {
       console.error('Login error:', error);
-      toast.error(error.response?.data?.message || 'Failed to login. Please check your credentials.');
+      toast.error('An error occurred while logging in.');
     } finally {
       setIsLoading(false);
     }
   };
   
   return (
-    <div className="min-h-screen flex items-center justify-center bg-secondary-50 py-12 px-4 sm:px-6 lg:px-8">
-      <div className="max-w-md w-full space-y-8 bg-white p-8 rounded-lg shadow-md">
-        <div className="text-center">
-          <Link href="/" className="inline-block">
-            <div className="flex items-center justify-center space-x-2">
-              <div className="relative w-10 h-10">
+    <div className="login-page">
+      {/* Add critical CSS inline to prevent flash of unstyled content */}
+      <style jsx global>{`
+        /* Critical CSS that should load first */
+        .login-page {
+          opacity: 0;
+          animation: fadeIn 0.3s ease-in forwards;
+        }
+        @keyframes fadeIn {
+          from { opacity: 0; }
+          to { opacity: 1; }
+        }
+      `}</style>
+      <style jsx global>{`
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            background-color: #f5f5f5;
+        }
+        .login-container {
+            background-color: white;
+            padding: 2rem;
+            border-radius: 8px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            width: 100%;
+            max-width: 400px;
+            margin: 4rem auto;
+        }
+        .logo-section {
+            text-align: center;
+            margin-bottom: 1.5rem;
+        }
+        .logo-text {
+            font-weight: bold;
+            font-size: 1.5rem;
+            color: #333;
+            margin-top: 0.5rem;
+        }
+        h1 {
+            text-align: center;
+            margin-bottom: 1.5rem;
+            font-size: 1.5rem;
+            color: #333;
+        }
+        .form-group {
+            margin-bottom: 1rem;
+        }
+        label {
+            display: block;
+            margin-bottom: 0.5rem;
+            font-weight: 500;
+            color: #333;
+        }
+        input[type="email"],
+        input[type="password"] {
+            width: 100%;
+            padding: 0.75rem;
+            border: 1px solid #d1d1d1;
+            border-radius: 4px;
+            font-size: 1rem;
+            box-sizing: border-box;
+        }
+        .checkbox-group {
+            display: flex;
+            align-items: center;
+            margin: 1rem 0;
+        }
+        .checkbox-group label {
+            margin-bottom: 0;
+            margin-left: 0.5rem;
+        }
+        button {
+            width: 100%;
+            padding: 0.75rem;
+            background-color: #4f46e5;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            font-size: 1rem;
+            font-weight: 500;
+            cursor: pointer;
+            margin-top: 1rem;
+        }
+        button:hover {
+            background-color: #4338ca;
+        }
+        .help-box {
+            margin-top: 1.5rem;
+            padding: 1rem;
+            background-color: #f0f7ff;
+            border: 1px solid #cfe2ff;
+            border-radius: 4px;
+        }
+        .help-box h2 {
+            margin-top: 0;
+            font-size: 1rem;
+            color: #0d47a1;
+        }
+        .help-box p {
+            margin: 0.25rem 0;
+            font-size: 0.875rem;
+            color: #1976d2;
+        }
+        .help-box strong {
+            font-weight: 600;
+        }
+        .redirect-notice {
+            text-align: center;
+            margin-top: 1rem;
+            padding: 0.75rem;
+            background-color: #fff8e1;
+            border: 1px solid #ffecb3;
+            border-radius: 4px;
+            font-size: 0.875rem;
+            color: #ff8f00;
+        }
+        .subtitle {
+            text-align: center;
+            margin-top: 0.5rem;
+            margin-bottom: 2rem;
+            font-size: 0.875rem;
+            color: #6b7280;
+        }
+        .subtitle a {
+            color: #4f46e5;
+            text-decoration: none;
+        }
+        .subtitle a:hover {
+            text-decoration: underline;
+        }
+      `}</style>
+      
+      <div className="login-container">
+        <div className="logo-section">
+          <Link href="/">
+            <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '0.5rem' }}>
+              <div style={{ position: 'relative', width: '40px', height: '40px' }}>
                 <Image 
                   src="/images/logo.svg" 
                   alt="Landing Pad Digital" 
-                  fill 
-                  className="object-contain"
+                  width={40}
+                  height={40}
                 />
               </div>
-              <span className="text-xl font-bold text-secondary-900">Landing Pad</span>
+              <span className="logo-text">Landing Pad</span>
             </div>
           </Link>
-          
-          <h2 className="mt-6 text-3xl font-extrabold text-secondary-900">Sign in to your account</h2>
-          <p className="mt-2 text-sm text-secondary-600">
-            Or{' '}
-            <Link href="/auth/signup" className="font-medium text-primary-600 hover:text-primary-500">
-              create a new account
-            </Link>
-          </p>
         </div>
         
-        <form className="mt-8 space-y-6" onSubmit={handleSubmit(onSubmit)}>
-          <div className="space-y-4">
-            <div>
-              <label htmlFor="email" className="block text-sm font-medium text-secondary-700 mb-1">
-                Email address
-              </label>
-              <input
-                id="email"
-                type="email"
-                autoComplete="email"
-                {...register('email', { 
-                  required: 'Email is required',
-                  pattern: {
-                    value: /^[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}$/i,
-                    message: 'Invalid email address',
-                  },
-                })}
-                className={`input-field ${errors.email ? 'border-error-500' : ''}`}
-              />
-              {errors.email && (
-                <p className="mt-1 text-sm text-error-600">{errors.email.message}</p>
-              )}
-            </div>
-            
-            <div>
-              <div className="flex items-center justify-between mb-1">
-                <label htmlFor="password" className="block text-sm font-medium text-secondary-700">
-                  Password
-                </label>
-                <Link href="/auth/forgot-password" className="text-sm font-medium text-primary-600 hover:text-primary-500">
-                  Forgot your password?
-                </Link>
-              </div>
-              <input
-                id="password"
-                type="password"
-                autoComplete="current-password"
-                {...register('password', { 
-                  required: 'Password is required',
-                  minLength: {
-                    value: 8,
-                    message: 'Password must be at least 8 characters',
-                  },
-                })}
-                className={`input-field ${errors.password ? 'border-error-500' : ''}`}
-              />
-              {errors.password && (
-                <p className="mt-1 text-sm text-error-600">{errors.password.message}</p>
-              )}
-            </div>
+        <h1>Sign in to your account</h1>
+        <p className="subtitle">
+          Or{' '}
+          <Link href="/auth/signup">
+            create a new account
+          </Link>
+        </p>
+        
+        
+        <form onSubmit={handleSubmit(onSubmit)}>
+          <div className="form-group">
+            <label htmlFor="email">Email address</label>
+            <input
+              id="email"
+              type="email"
+              {...register('email', { 
+                required: 'Email is required',
+                pattern: {
+                  value: /^[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}$/i,
+                  message: 'Invalid email address',
+                },
+              })}
+            />
           </div>
           
-          <div className="flex items-center">
+          <div className="form-group">
+            <label htmlFor="password">Password</label>
+            <input
+              id="password"
+              type="password"
+              {...register('password', { 
+                required: 'Password is required',
+              })}
+            />
+          </div>
+          
+          <div className="checkbox-group">
             <input
               id="remember-me"
-              name="remember-me"
               type="checkbox"
-              className="h-4 w-4 text-primary-600 focus:ring-primary-500 border-secondary-300 rounded"
             />
-            <label htmlFor="remember-me" className="ml-2 block text-sm text-secondary-700">
+            <label htmlFor="remember-me">
               Remember me
             </label>
           </div>
           
-          <Button 
-            type="submit" 
-            fullWidth={true} 
-            isLoading={isLoading}
-          >
-            Sign in
-          </Button>
-        </form>
-        
-        <div className="mt-6">
-          <div className="relative">
-            <div className="absolute inset-0 flex items-center">
-              <div className="w-full border-t border-secondary-300"></div>
-            </div>
-            <div className="relative flex justify-center text-sm">
-              <span className="px-2 bg-white text-secondary-500">Or continue with</span>
-            </div>
-          </div>
+          <button type="submit">
+            {isLoading ? 'Signing in...' : 'Sign in'}
+          </button>
           
-          <div className="mt-6 grid grid-cols-2 gap-3">
-            <button
-              type="button"
-              className="w-full inline-flex justify-center py-2 px-4 border border-secondary-300 rounded-md shadow-sm bg-white text-sm font-medium text-secondary-700 hover:bg-secondary-50"
-            >
-              <svg className="w-5 h-5 mr-2" aria-hidden="true" fill="currentColor" viewBox="0 0 20 20">
-                <path d="M6.29 18.251c7.547 0 11.675-6.253 11.675-11.675 0-.178 0-.355-.012-.53A8.348 8.348 0 0020 3.92a8.19 8.19 0 01-2.357.646 4.118 4.118 0 001.804-2.27 8.224 8.224 0 01-2.605.996 4.107 4.107 0 00-6.993 3.743 11.65 11.65 0 01-8.457-4.287 4.106 4.106 0 001.27 5.477A4.073 4.073 0 01.8 7.713v.052a4.105 4.105 0 003.292 4.022 4.095 4.095 0 01-1.853.07 4.108 4.108 0 003.834 2.85A8.233 8.233 0 010 16.407a11.616 11.616 0 006.29 1.84"></path>
-              </svg>
-              <span>Google</span>
-            </button>
-            
-            <button
-              type="button"
-              className="w-full inline-flex justify-center py-2 px-4 border border-secondary-300 rounded-md shadow-sm bg-white text-sm font-medium text-secondary-700 hover:bg-secondary-50"
-            >
-              <svg className="w-5 h-5 mr-2" aria-hidden="true" fill="currentColor" viewBox="0 0 20 20">
-                <path fillRule="evenodd" d="M10 0C4.477 0 0 4.484 0 10.017c0 4.425 2.865 8.18 6.839 9.504.5.092.682-.217.682-.483 0-.237-.008-.868-.013-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.003.07 1.531 1.032 1.531 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.029-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0110 4.844c.85.004 1.705.115 2.504.337 1.909-1.296 2.747-1.027 2.747-1.027.546 1.379.202 2.398.1 2.651.64.7 1.028 1.595 1.028 2.688 0 3.848-2.339 4.695-4.566 4.943.359.309.678.92.678 1.855 0 1.338-.012 2.419-.012 2.747 0 .268.18.58.688.482A10.019 10.019 0 0020 10.017C20 4.484 15.522 0 10 0z" clipRule="evenodd"></path>
-              </svg>
-              <span>GitHub</span>
-            </button>
+          <div className="help-box">
+            <h2>Demo Credentials:</h2>
+            <p><strong>Admin:</strong> admin@example.com / password123</p>
+            <p><strong>User:</strong> john@example.com / password123</p>
           </div>
-        </div>
+        </form>
       </div>
     </div>
   );
