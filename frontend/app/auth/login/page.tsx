@@ -87,18 +87,6 @@ export default function LoginPage() {
   
   return (
     <div className="login-page">
-      {/* Add critical CSS inline to prevent flash of unstyled content */}
-      <style jsx global>{`
-        /* Critical CSS that should load first */
-        .login-page {
-          opacity: 0;
-          animation: fadeIn 0.3s ease-in forwards;
-        }
-        @keyframes fadeIn {
-          from { opacity: 0; }
-          to { opacity: 1; }
-        }
-      `}</style>
       <style jsx global>{`
         body {
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
@@ -146,6 +134,8 @@ export default function LoginPage() {
             border-radius: 4px;
             font-size: 1rem;
             box-sizing: border-box;
+            color: #333333;
+            background-color: #ffffff;
         }
         .checkbox-group {
             display: flex;
