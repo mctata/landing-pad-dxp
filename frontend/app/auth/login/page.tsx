@@ -39,24 +39,39 @@ export default function LoginPage() {
       if ((data.email === 'admin@example.com' || data.email === 'john@example.com') && 
           data.password === 'password123') {
           
-        // Set mock token and email directly
+        // Create a user object for mock auth
+        const user = {
+          id: 'mock-user-id',
+          name: data.email.split('@')[0],
+          email: data.email,
+          subscription: data.email === 'admin@example.com' ? 'enterprise' : 'pro',
+          role: data.email === 'admin@example.com' ? 'admin' : 'user',
+        };
+        
+        // Store all user data for persistence
+        const userData = JSON.stringify(user);
+        localStorage.setItem('userData', userData);
+        
+        // Set additional items for backward compatibility
         localStorage.setItem('token', 'mock-jwt-token-' + Math.random().toString(36).substring(2));
         localStorage.setItem('userEmail', data.email);
+        localStorage.setItem('userRole', data.email === 'admin@example.com' ? 'admin' : 'user');
         
         // Show success message
         toast.success('Login successful');
         
-        // Store user role for auth checks
-        localStorage.setItem('userRole', data.email === 'admin@example.com' ? 'admin' : 'user');
+        // Redirect based on email - use simple URLs with no parameters
+        // This reduces the chances of redirect loops
+        setTimeout(() => {
+          if (data.email === 'admin@example.com') {
+            // Admin dashboard
+            window.location.replace('/dashboard');
+          } else {
+            // User create page
+            window.location.replace('/dashboard/create');
+          }
+        }, 500);
         
-        // Redirect based on email, adding fromLogin parameter to prevent redirect loops
-        if (data.email === 'admin@example.com') {
-          // Direct navigation for more reliable redirect with explicit parameters
-          window.location.href = '/dashboard?fromLogin=true&noRedirect=1';
-        } else {
-          // Direct navigation for more reliable redirect with explicit parameters
-          window.location.href = '/dashboard/create?fromLogin=true&noRedirect=1';
-        }
         return;
       }
       

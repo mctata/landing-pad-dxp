@@ -33,6 +33,23 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     const checkAuth = async () => {
       try {
+        // Try to get stored user data first (most reliable)
+        const userData = localStorage.getItem('userData');
+        
+        if (userData) {
+          try {
+            // Parse stored user data
+            const parsedUser = JSON.parse(userData);
+            setUser(parsedUser);
+            console.log('Using stored user data from localStorage');
+            setIsLoading(false);
+            return;
+          } catch (e) {
+            console.warn('Failed to parse userData from localStorage');
+          }
+        }
+        
+        // Fallback to legacy storage
         const token = localStorage.getItem('token');
         const userEmail = localStorage.getItem('userEmail');
         const userRole = localStorage.getItem('userRole');
@@ -43,28 +60,35 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         }
         
         try {
-          // Try to get user from API
+          // Try to get user from API as a last resort
           const response = await authAPI.getCurrentUser();
           setUser(response.data.user);
         } catch (error) {
           // If API fails, create user from local storage
           if (userEmail && userRole) {
             // Create a mock user from localStorage data for demo purposes
-            setUser({
+            const mockUser = {
               id: 'mock-user-id',
               name: userEmail.split('@')[0],
               email: userEmail,
               subscription: userRole === 'admin' ? 'enterprise' : 'pro',
               role: userRole,
-            });
-            console.log('Using mock user from localStorage');
+            };
+            
+            // Store it in the new format for next time
+            localStorage.setItem('userData', JSON.stringify(mockUser));
+            
+            setUser(mockUser);
+            console.log('Using mock user from localStorage (legacy format)');
           }
         }
       } catch (error) {
-        // Clear token if invalid
+        // Clear all tokens if something went wrong
+        localStorage.removeItem('userData');
         localStorage.removeItem('token');
         localStorage.removeItem('userEmail');
         localStorage.removeItem('userRole');
+        console.error('Auth check failed completely:', error);
       } finally {
         setIsLoading(false);
       }
@@ -133,25 +157,35 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const logout = async () => {
     setIsLoading(true);
     try {
-      // Call logout endpoint if needed
-      // await authAPI.logout();
-      
-      // Clear token and user state
+      // Clear all storage related to authentication
+      localStorage.removeItem('userData');
       localStorage.removeItem('token');
       localStorage.removeItem('userEmail');
+      localStorage.removeItem('userRole');
+      
+      // Clear user state
       setUser(null);
       
       // Show success message
       toast.success('Logged out successfully');
       
-      // Redirect to home - use direct navigation
-      window.location.href = '/';
+      // Add a small delay to ensure toast is shown
+      setTimeout(() => {
+        // Redirect to home - use direct navigation
+        window.location.replace('/');
+      }, 500);
     } catch (error) {
-      // Even if API call fails, we still want to clear local state
+      // Even if there's an error, make sure we clear everything
+      localStorage.removeItem('userData');
       localStorage.removeItem('token');
       localStorage.removeItem('userEmail');
+      localStorage.removeItem('userRole');
       setUser(null);
-      window.location.href = '/';
+      
+      // Redirect after a small delay
+      setTimeout(() => {
+        window.location.replace('/');
+      }, 500);
     } finally {
       setIsLoading(false);
     }
