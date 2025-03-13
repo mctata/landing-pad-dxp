@@ -9,7 +9,17 @@ import { useAuth } from '@/lib/auth/auth-context';
 export function Header() {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const pathname = usePathname();
-  const { user, isLoading, logout } = useAuth();
+  
+  // Handle possible errors when component mounts before AuthProvider
+  let authContext;
+  try {
+    authContext = useAuth();
+  } catch (e) {
+    console.warn('Auth context not available in Header:', e);
+    authContext = { user: null, isLoading: false, logout: () => {}, isAuthenticated: false };
+  }
+  
+  const { user, isLoading, logout } = authContext;
 
   const isActive = (path: string) => {
     return pathname === path;

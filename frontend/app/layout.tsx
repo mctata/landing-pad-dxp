@@ -39,9 +39,7 @@ export default function RootLayout({
           }
         `}} />
         
-        {/* Preload critical resources */}
-        <link rel="preload" href="/fonts/inter.woff2" as="font" type="font/woff2" crossOrigin="anonymous" />
-        <link rel="preload" href="/images/logo.svg" as="image" />
+        {/* Don't preload specific fonts since we're using Google Fonts */}
       </head>
       <body className={inter.className}>
         {/* Skip to content link for keyboard users */}

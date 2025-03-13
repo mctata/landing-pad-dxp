@@ -30,8 +30,6 @@ const nextConfig = {
   // Enable App directory (no longer experimental in latest Next.js)
   experimental: {
     appDir: true,
-    // Optimize client-side navigation
-    optimizeCss: true,
     // Preload critical assets
     preloadedFonts: true,
   },
