@@ -87,12 +87,35 @@ app.use(errorHandler);
 const startServer = async () => {
   try {
     // Test database connection
-    await testConnection();
+    const dbConnected = await testConnection();
+    if (!dbConnected) {
+      logger.error('Database connection failed. Check your database configuration.');
+      throw new Error('Database connection failed');
+    }
     
-    // Sync database models if not in production
-    if (process.env.NODE_ENV !== 'production') {
-      await sequelize.sync({ alter: process.env.DB_FORCE_RESET === 'true' });
-      logger.info('Database synced');
+    // Initialize database based on environment
+    if (process.env.NODE_ENV === 'production') {
+      // In production, only verify connection - migrations should be run separately
+      logger.info('Production environment detected. Database connection verified.');
+      logger.info('Note: Run migrations manually before deploying to production.');
+    } else {
+      // In development, sync models and apply any pending migrations
+      const forceReset = process.env.DB_FORCE_RESET === 'true';
+      const alterTables = process.env.DB_ALTER_TABLES === 'true';
+      
+      // Sync database models with different strategies
+      if (forceReset) {
+        logger.warn('Forcing database reset (all data will be lost)');
+        await sequelize.sync({ force: true });
+      } else if (alterTables) {
+        logger.info('Altering database tables to match models');
+        await sequelize.sync({ alter: true });
+      } else {
+        logger.info('Synchronizing database (safe mode)');
+        await sequelize.sync();
+      }
+      
+      logger.info('Database synchronized successfully');
     }
     
     // Start server if not in test mode
@@ -101,6 +124,15 @@ const startServer = async () => {
         logger.info(`Server running on port ${PORT} in ${process.env.NODE_ENV || 'development'} mode`);
         logger.info(`API available at http://localhost:${PORT}${API_PREFIX}`);
         logger.info(`Health check available at http://localhost:${PORT}/health`);
+        
+        // Log Postgres connection info
+        const dbInfo = {
+          host: process.env.DB_HOST || 'localhost',
+          port: process.env.DB_PORT || 5432,
+          database: process.env.DB_NAME || 'landing_pad_dev',
+          ssl: process.env.NODE_ENV === 'production' ? 'enabled' : 'disabled'
+        };
+        logger.info(`Database connected: ${JSON.stringify(dbInfo)}`);
       });
     }
   } catch (error) {

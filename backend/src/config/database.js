@@ -12,6 +12,23 @@ const createSequelizeConnection = () => {
           require: true,
           rejectUnauthorized: false
         } : false
+      },
+      pool: {
+        max: 10,                    // Maximum number of connection in pool
+        min: 2,                     // Minimum number of connection in pool
+        acquire: 30000,             // Maximum time (ms) that pool will try to get connection before throwing error
+        idle: 10000                 // Maximum time (ms) that a connection can be idle before being released
+      },
+      retry: {
+        match: [
+          /SequelizeConnectionError/,
+          /SequelizeConnectionRefusedError/,
+          /SequelizeHostNotFoundError/,
+          /SequelizeHostNotReachableError/,
+          /SequelizeInvalidConnectionError/,
+          /SequelizeConnectionTimedOutError/
+        ],
+        max: 5                     // How many times to retry a failing query
       }
     });
   } else {
@@ -29,6 +46,23 @@ const createSequelizeConnection = () => {
           require: true,
           rejectUnauthorized: false
         } : false
+      },
+      pool: {
+        max: 10,                    // Maximum number of connection in pool
+        min: 2,                     // Minimum number of connection in pool
+        acquire: 30000,             // Maximum time (ms) that pool will try to get connection before throwing error
+        idle: 10000                 // Maximum time (ms) that a connection can be idle before being released
+      },
+      retry: {
+        match: [
+          /SequelizeConnectionError/,
+          /SequelizeConnectionRefusedError/,
+          /SequelizeHostNotFoundError/,
+          /SequelizeHostNotReachableError/,
+          /SequelizeInvalidConnectionError/,
+          /SequelizeConnectionTimedOutError/
+        ],
+        max: 5                     // How many times to retry a failing query
       }
     });
   }
@@ -48,7 +82,33 @@ const testConnection = async () => {
   }
 };
 
+// Initialize database with automatic migration
+const initializeDatabase = async (forceSync = false) => {
+  try {
+    // Test connection first
+    const isConnected = await testConnection();
+    if (!isConnected) {
+      throw new Error('Could not connect to database');
+    }
+    
+    // Determine if we should sync (create tables)
+    if (process.env.NODE_ENV !== 'production' || forceSync) {
+      logger.info(`Synchronizing database schema (force=${forceSync})...`);
+      await sequelize.sync({ force: forceSync });
+      logger.info('Database schema synchronized successfully.');
+    } else {
+      logger.info('Skipping automatic schema sync in production. Run migrations manually.');
+    }
+    
+    return true;
+  } catch (error) {
+    logger.error('Database initialization failed:', error);
+    return false;
+  }
+};
+
 module.exports = { 
   sequelize,
-  testConnection
+  testConnection,
+  initializeDatabase
 };

@@ -103,25 +103,51 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     try {
       const response = await authAPI.login(email, password);
       
-      // Save token
-      localStorage.setItem('token', response.data.token);
+      // For social login, this might be in response.data.accessToken instead
+      const token = response.data.token || response.data.accessToken;
       
-      // Set user
+      // Save token
+      localStorage.setItem('token', token);
+      
+      // Save complete user data in a structured way to reduce API calls
+      localStorage.setItem('userData', JSON.stringify(response.data.user));
+      
+      // Legacy support - these are still used in some places
+      localStorage.setItem('userEmail', response.data.user.email);
+      localStorage.setItem('userRole', response.data.user.role);
+      
+      // Set user in state
       setUser(response.data.user);
       
       // Show success message
       toast.success('Login successful');
       
-      // Redirect based on user role - use direct navigation for more reliable redirection
-      if (response.data.user.role === 'admin') {
-        // Admin goes to admin dashboard - add fromLogin to prevent middleware redirect loops
-        window.location.href = '/admin/dashboard?fromLogin=true';
-      } else {
-        // Regular users go to create page - add fromLogin to prevent middleware redirect loops
-        window.location.href = '/dashboard/create?fromLogin=true';
-      }
+      // Add a small delay to ensure localStorage is updated before redirect
+      // This helps prevent middleware auth issues
+      setTimeout(() => {
+        // Redirect based on user role - use direct navigation for more reliable redirection
+        if (response.data.user.role === 'admin') {
+          // Admin goes to admin dashboard - add fromLogin to prevent middleware redirect loops
+          window.location.href = '/admin/dashboard?fromLogin=true';
+        } else {
+          // Regular users go to create page - add fromLogin to prevent middleware redirect loops
+          window.location.href = '/dashboard/create?fromLogin=true';
+        }
+      }, 200);
     } catch (error: any) {
-      toast.error(error.response?.data?.message || 'Login failed. Please check your credentials.');
+      // Handle specific error cases
+      const errorMessage = error.response?.data?.message || 'Login failed. Please check your credentials.';
+      
+      // Handle specific error scenarios
+      if (error.response?.status === 403 && error.response?.data?.verificationRequired) {
+        toast.error('Email verification required. Please check your inbox for verification link.');
+      } else if (error.response?.status === 429) {
+        toast.error('Too many login attempts. Please try again later.');
+      } else {
+        toast.error(errorMessage);
+      }
+      
+      console.error('Login error:', error);
       throw error;
     } finally {
       setIsLoading(false);
@@ -132,21 +158,67 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const signup = async (name: string, email: string, password: string) => {
     setIsLoading(true);
     try {
-      const response = await authAPI.register(name, email, password);
+      const [firstName, lastName] = name.split(' ');
+      
+      const response = await authAPI.register(
+        firstName || name, 
+        lastName || '', 
+        email, 
+        password
+      );
+      
+      // For backend API compatibility
+      const token = response.data.token || response.data.accessToken;
       
       // Save token
-      localStorage.setItem('token', response.data.token);
+      localStorage.setItem('token', token);
+      
+      // Save complete user data in structured format
+      localStorage.setItem('userData', JSON.stringify(response.data.user));
+      
+      // Legacy support - these are still used in some places
+      localStorage.setItem('userEmail', response.data.user.email);
+      localStorage.setItem('userRole', response.data.user.role || 'user');
       
       // Set user
       setUser(response.data.user);
       
-      // Show success message
-      toast.success('Registration successful');
-      
-      // Redirect to dashboard
-      router.push('/dashboard');
+      // Check if verification is required
+      if (response.data.verificationRequired) {
+        toast.success('Registration successful! Please check your email to verify your account.');
+        
+        // Go to verification pending page
+        setTimeout(() => {
+          // Use window.location for more reliable redirects
+          window.location.href = '/auth/verify-email?email=' + encodeURIComponent(email);
+        }, 200);
+      } else {
+        // Standard success message
+        toast.success('Registration successful');
+        
+        // Add a small delay to ensure localStorage is updated
+        setTimeout(() => {
+          // Redirect to dashboard - use window.location for more reliable redirects
+          window.location.href = '/dashboard?fromRegister=true';
+        }, 200);
+      }
     } catch (error: any) {
-      toast.error(error.response?.data?.message || 'Registration failed. Please try again.');
+      // Handle specific error cases
+      const errorMessage = error.response?.data?.message || 'Registration failed. Please try again.';
+      
+      if (error.response?.status === 400 && error.response?.data?.errors) {
+        // Validation errors
+        const validationErrors = error.response.data.errors;
+        // Show first validation error
+        toast.error(validationErrors[0]?.msg || errorMessage);
+      } else if (error.response?.status === 409) {
+        // Conflict - user already exists
+        toast.error('An account with this email already exists.');
+      } else {
+        toast.error(errorMessage);
+      }
+      
+      console.error('Registration error:', error);
       throw error;
     } finally {
       setIsLoading(false);

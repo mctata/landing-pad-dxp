@@ -9,8 +9,11 @@
     "test": "jest",
     "test:watch": "jest --watch",
     "lint": "eslint .",
-    "seed": "node src/scripts/initDb.js",
     "db:init": "node src/scripts/initDb.js",
+    "db:reset": "node src/scripts/initDb.js --force",
+    "db:seed": "node src/scripts/initDb.js --no-migrate",
+    "db:migrate": "node src/scripts/initDb.js --migrate --no-seed",
+    "db:prod:init": "node src/scripts/initDb.js --production --migrate",
     "worker": "node bin/run-worker.js",
     "worker:dev": "nodemon bin/run-worker.js",
     "dev:all": "concurrently \"npm run dev\" \"npm run worker:dev\""
