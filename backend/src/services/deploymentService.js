@@ -1,7 +1,8 @@
 const logger = require('../utils/logger');
 const { Deployment, Website } = require('../models');
 const { Op } = require('sequelize');
-const fs = require('fs').promises;
+const fsPromises = require('fs').promises;
+const fs = require('fs');
 const path = require('path');
 const { execSync, exec } = require('child_process');
 const axios = require('axios');
@@ -221,7 +222,7 @@ const deploymentService = {
       
       // Create build directory
       buildLogs.push(`Creating build directory: ${buildDir}`);
-      await fs.mkdir(buildDir, { recursive: true });
+      await fsPromises.mkdir(buildDir, { recursive: true });
       
       // Generate website files
       buildLogs.push('Generating website files...');
@@ -275,7 +276,7 @@ const deploymentService = {
     } finally {
       // Clean up build directory
       try {
-        await fs.rm(buildDir, { recursive: true, force: true });
+        await fsPromises.rm(buildDir, { recursive: true, force: true });
       } catch (cleanupError) {
         logger.warn(`Failed to clean up build directory: ${buildDir}`, cleanupError);
       }
@@ -319,11 +320,11 @@ const deploymentService = {
       // Create assets directory and copy default assets
       buildLogs.push('Setting up assets...');
       const assetsDir = path.join(buildDir, 'assets');
-      await fs.mkdir(assetsDir, { recursive: true });
+      await fsPromises.mkdir(assetsDir, { recursive: true });
       
       // Create robots.txt
       buildLogs.push('Creating robots.txt...');
-      await fs.writeFile(
+      await fsPromises.writeFile(
         path.join(buildDir, 'robots.txt'),
         'User-agent: *\nAllow: /'
       );
@@ -411,7 +412,7 @@ const deploymentService = {
     `;
     
     // Write CSS file
-    await fs.writeFile(path.join(buildDir, 'styles.css'), css);
+    await fsPromises.writeFile(path.join(buildDir, 'styles.css'), css);
   },
   
   /**
@@ -446,7 +447,7 @@ const deploymentService = {
     
     // Determine filename (index.html for home page)
     const filename = isHome ? 'index.html' : `${page.slug}.html`;
-    await fs.writeFile(path.join(buildDir, filename), html);
+    await fsPromises.writeFile(path.join(buildDir, filename), html);
   },
   
   /**
@@ -712,7 +713,7 @@ const deploymentService = {
       // 1. Check for index.html existence
       try {
         const indexPath = path.join(buildDir, 'index.html');
-        await fs.access(indexPath);
+        await fsPromises.access(indexPath);
         buildLogs.push('✓ index.html exists');
       } catch (indexError) {
         const error = 'Missing index.html file';
@@ -723,7 +724,7 @@ const deploymentService = {
       // 2. Check CSS file
       try {
         const cssPath = path.join(buildDir, 'styles.css');
-        await fs.access(cssPath);
+        await fsPromises.access(cssPath);
         buildLogs.push('✓ styles.css exists');
       } catch (cssError) {
         const error = 'Missing styles.css file';
@@ -733,13 +734,13 @@ const deploymentService = {
       
       // 3. Check for broken links in HTML files
       try {
-        const htmlFiles = await fs.readdir(buildDir);
+        const htmlFiles = await fsPromises.readdir(buildDir);
         const htmlPaths = htmlFiles
           .filter(file => file.endsWith('.html'))
           .map(file => path.join(buildDir, file));
         
         for (const htmlPath of htmlPaths) {
-          const content = await fs.readFile(htmlPath, 'utf8');
+          const content = await fsPromises.readFile(htmlPath, 'utf8');
           
           // Check for broken local resource links
           const resourceRegex = /(src|href)=['"]((?!http)[^'"]+)['"]/g;
@@ -754,7 +755,7 @@ const deploymentService = {
             
             try {
               const resourcePath = path.join(buildDir, resource);
-              await fs.access(resourcePath);
+              await fsPromises.access(resourcePath);
             } catch (resourceError) {
               const error = `Broken link in ${path.basename(htmlPath)}: ${resource}`;
               errors.push(error);
@@ -779,7 +780,7 @@ const deploymentService = {
       // 4. Check HTML validity (basic checks)
       try {
         const indexPath = path.join(buildDir, 'index.html');
-        const indexContent = await fs.readFile(indexPath, 'utf8');
+        const indexContent = await fsPromises.readFile(indexPath, 'utf8');
         
         // Check for doctype, html, head and body tags
         const hasDoctype = indexContent.toLowerCase().includes('<!doctype html');
@@ -919,7 +920,7 @@ const deploymentService = {
       
       // Check if build directory exists
       try {
-        await fs.access(buildDir);
+        await fsPromises.access(buildDir);
       } catch (accessError) {
         buildLogs.push(`Error: Build directory does not exist: ${buildDir}`);
         throw new Error(`Build directory does not exist: ${buildDir}`);
@@ -927,7 +928,7 @@ const deploymentService = {
       
       // Get all files recursively
       const getFilesRecursively = async (dir) => {
-        const entries = await fs.readdir(dir, { withFileTypes: true });
+        const entries = await fsPromises.readdir(dir, { withFileTypes: true });
         
         // Process all entries
         const files = await Promise.all(
@@ -939,7 +940,7 @@ const deploymentService = {
               return getFilesRecursively(fullPath);
             } else {
               // If file, read content and prepare for Vercel
-              const content = await fs.readFile(fullPath);
+              const content = await fsPromises.readFile(fullPath);
               
               // Get relative path from build directory
               const relativePath = path.relative(buildDir, fullPath);

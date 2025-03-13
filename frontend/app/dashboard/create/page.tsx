@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { templateAPI, projectAPI } from '@/lib/api';
 import { useTemplate } from '@/lib/template/template-context';
-import { toast } from 'react-toastify';
+import { toast } from 'react-hot-toast';
 
 interface Template {
   id: string;
@@ -179,8 +179,50 @@ export default function CreateProjectPage() {
         <div className="text-center">
           <h1 className="text-3xl font-bold text-secondary-900">Create New Website</h1>
           <p className="mt-2 text-secondary-600">
-            Follow the steps below to create your new website
+            Let our AI help you create a beautiful website for your business
           </p>
+          
+          {/* AI-Powered Website Generation */}
+          <div className="mt-8 bg-gradient-to-r from-primary-50 to-secondary-50 rounded-xl p-6 shadow-sm border border-primary-100">
+            <div className="flex items-center justify-center space-x-4">
+              <div className="p-3 bg-primary-100 rounded-full">
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8 text-primary-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M12 2a10 10 0 1 0 10 10H12V2z"></path>
+                  <path d="M12 2a10 10 0 0 1 10 10h-10V2z"></path>
+                  <path d="M12 12l9.3 2.9a10 10 0 0 1-19.45-1L12 12z"></path>
+                </svg>
+              </div>
+              <h2 className="text-xl font-semibold text-secondary-900">
+                AI-Powered Website Generator
+              </h2>
+            </div>
+            
+            <p className="mt-4 text-secondary-700">
+              Just enter your business name and type, and our AI will generate a complete website tailored to your needs.
+            </p>
+            
+            <div className="mt-6 max-w-lg mx-auto">
+              <div className="flex flex-col sm:flex-row gap-4">
+                <input 
+                  type="text" 
+                  placeholder="Enter your business name" 
+                  className="flex-1 rounded-md border-secondary-300 shadow-sm focus:border-primary-500 focus:ring-primary-500"
+                />
+                <select className="rounded-md border-secondary-300 shadow-sm focus:border-primary-500 focus:ring-primary-500">
+                  <option value="">Select business type</option>
+                  <option value="restaurant">Restaurant</option>
+                  <option value="retail">Retail Store</option>
+                  <option value="services">Professional Services</option>
+                  <option value="tech">Technology</option>
+                  <option value="health">Healthcare</option>
+                </select>
+                <button className="px-4 py-2 bg-primary-600 text-white rounded-md hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2">
+                  Generate
+                </button>
+              </div>
+              <p className="mt-2 text-sm text-secondary-500">Powered by Google Places API and OpenAI</p>
+            </div>
+          </div>
         </div>
         
         {/* Progress Indicator */}

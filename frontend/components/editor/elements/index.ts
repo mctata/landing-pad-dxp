@@ -7,7 +7,7 @@ export { TestimonialsElement } from './TestimonialsElement';
 export { CtaElement } from './CtaElement';
 export { ImageElement } from './ImageElement';
 export { PricingElement } from './PricingElement';
-export { ContactElement } from './ContactElement';
+export { default as ContactElement } from './ContactElement';
 export { CustomHtmlElement } from './CustomHtmlElement';
 
 // Export element type definitions

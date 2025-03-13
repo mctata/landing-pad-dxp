@@ -1,0 +1,218 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="refresh" content="0;url=/auth/login" />
+    <title>Login - Landing Pad</title>
+    <script src="/redirect.js"></script>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            background-color: #f5f5f5;
+            margin: 0;
+            padding: 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+        }
+        .login-container {
+            background-color: white;
+            padding: 2rem;
+            border-radius: 8px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            width: 100%;
+            max-width: 400px;
+        }
+        .logo {
+            text-align: center;
+            margin-bottom: 1.5rem;
+            font-weight: bold;
+            font-size: 1.5rem;
+            color: #333;
+        }
+        h1 {
+            text-align: center;
+            margin-bottom: 1.5rem;
+            font-size: 1.5rem;
+            color: #333;
+        }
+        .form-group {
+            margin-bottom: 1rem;
+        }
+        label {
+            display: block;
+            margin-bottom: 0.5rem;
+            font-weight: 500;
+            color: #333;
+        }
+        input[type="email"],
+        input[type="password"] {
+            width: 100%;
+            padding: 0.75rem;
+            border: 1px solid #d1d1d1;
+            border-radius: 4px;
+            font-size: 1rem;
+            box-sizing: border-box;
+        }
+        .checkbox-group {
+            display: flex;
+            align-items: center;
+            margin: 1rem 0;
+        }
+        .checkbox-group label {
+            margin-bottom: 0;
+            margin-left: 0.5rem;
+        }
+        button {
+            width: 100%;
+            padding: 0.75rem;
+            background-color: #4f46e5;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            font-size: 1rem;
+            font-weight: 500;
+            cursor: pointer;
+            margin-top: 1rem;
+        }
+        button:hover {
+            background-color: #4338ca;
+        }
+        .help-box {
+            margin-top: 1.5rem;
+            padding: 1rem;
+            background-color: #f0f7ff;
+            border: 1px solid #cfe2ff;
+            border-radius: 4px;
+        }
+        .help-box h2 {
+            margin-top: 0;
+            font-size: 1rem;
+            color: #0d47a1;
+        }
+        .help-box p {
+            margin: 0.25rem 0;
+            font-size: 0.875rem;
+            color: #1976d2;
+        }
+        .help-box strong {
+            font-weight: 600;
+        }
+        .toast {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            padding: 10px 20px;
+            background-color: #4caf50;
+            color: white;
+            border-radius: 4px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+            display: none;
+            animation: fadeInOut 3s ease-in-out forwards;
+        }
+        @keyframes fadeInOut {
+            0% { opacity: 0; }
+            10% { opacity: 1; }
+            80% { opacity: 1; }
+            100% { opacity: 0; }
+        }
+        .links {
+            text-align: center;
+            margin-top: 1rem;
+            font-size: 0.875rem;
+        }
+        .links a {
+            color: #4f46e5;
+            text-decoration: none;
+        }
+        .links a:hover {
+            text-decoration: underline;
+        }
+    </style>
+</head>
+<body>
+    <div id="toast" class="toast">Login successful!</div>
+    
+    <div class="login-container">
+        <div class="logo">Landing Pad</div>
+        <h1>Sign in to your account</h1>
+        
+        <form id="login-form">
+            <div class="form-group">
+                <label for="email">Email address</label>
+                <input type="email" id="email" name="email" required>
+            </div>
+            
+            <div class="form-group">
+                <label for="password">Password</label>
+                <input type="password" id="password" name="password" required>
+            </div>
+            
+            <div class="checkbox-group">
+                <input type="checkbox" id="remember" name="remember">
+                <label for="remember">Remember me</label>
+            </div>
+            
+            <button type="submit" id="submit-btn">Sign in</button>
+            
+            <div class="help-box">
+                <h2>Demo Credentials:</h2>
+                <p><strong>Admin:</strong> admin@example.com / password123</p>
+                <p><strong>User:</strong> john@example.com / password123</p>
+            </div>
+        </form>
+        
+        <div class="links">
+            <a href="/">Back to home</a> | <a href="/dashboard/index.html">Dashboard</a>
+        </div>
+    </div>
+
+    <script>
+        document.getElementById('login-form').addEventListener('submit', function(e) {
+            e.preventDefault();
+            
+            // Get values
+            const email = document.getElementById('email').value;
+            const password = document.getElementById('password').value;
+            
+            // Simple validation for demo credentials
+            if ((email === 'admin@example.com' || email === 'john@example.com') && 
+                password === 'password123') {
+                
+                // Show success toast
+                const toast = document.getElementById('toast');
+                toast.style.display = 'block';
+                
+                // Update button
+                document.getElementById('submit-btn').textContent = 'Signing in...';
+                document.getElementById('submit-btn').disabled = true;
+                
+                // Redirect to dashboard after 1.5 seconds
+                setTimeout(() => {
+                    // In a real app, we'd store authentication token
+                    localStorage.setItem('demoUserLoggedIn', 'true');
+                    localStorage.setItem('demoUserEmail', email);
+                    
+                    // Redirect to dashboard
+                    window.location.href = '/dashboard/index.html?welcome=true';
+                }, 1500);
+                
+            } else {
+                alert('Invalid credentials. Please use the demo credentials shown below.');
+            }
+        });
+        
+        // Pre-fill email field if coming from signup
+        window.addEventListener('DOMContentLoaded', function() {
+            const params = new URLSearchParams(window.location.search);
+            const email = params.get('email');
+            if (email) {
+                document.getElementById('email').value = email;
+                document.getElementById('password').focus();
+            }
+        });
+    </script>
+</body>
+</html>

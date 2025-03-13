@@ -1,5 +1,7 @@
+'use client';
+
 import React, { useState, useEffect } from 'react';
-import axios from 'axios';
+import { adminAPI } from '@/lib/api';
 import {
   ArrowPathIcon,
   ArrowLeftIcon,
@@ -134,7 +136,7 @@ export const AdminDashboard: React.FC = () => {
   const fetchStats = async () => {
     try {
       setLoading(true);
-      const response = await axios.get('/api/admin/stats');
+      const response = await adminAPI.getStats();
       setStats(response.data.stats);
       setRecentDeployments(response.data.recentDeployments);
       setError(null);
@@ -149,9 +151,36 @@ export const AdminDashboard: React.FC = () => {
   const fetchWebsites = async (page: number) => {
     try {
       setLoading(true);
-      const response = await axios.get(`/api/admin/websites?page=${page}&limit=10`);
-      setWebsites(response.data.websites);
-      setWebsitesPagination(response.data.pagination);
+      // Use mock data for all tabs since we don't have real endpoints yet
+      
+      // Generate mock websites
+      const mockWebsites = Array.from({ length: 12 }, (_, i) => ({
+        id: `website-${i + 1}`,
+        name: ['Portfolio Site', 'Corporate Website', 'Blog', 'E-commerce Store', 'Landing Page'][i % 5] + ` ${i + 1}`,
+        description: 'A website created with Landing Pad',
+        status: ['published', 'draft', 'archived'][i % 3],
+        createdAt: new Date(Date.now() - (i * 7) * 24 * 60 * 60 * 1000).toISOString(),
+        updatedAt: new Date(Date.now() - i * 24 * 60 * 60 * 1000).toISOString(),
+        lastPublishedAt: i % 3 === 0 ? new Date(Date.now() - i * 3 * 24 * 60 * 60 * 1000).toISOString() : null,
+        user: {
+          firstName: ['John', 'Jane', 'Robert', 'Emily'][i % 4],
+          lastName: ['Smith', 'Johnson', 'Williams', 'Brown'][i % 4]
+        }
+      }));
+      
+      // Apply pagination
+      const limit = 10;
+      const start = (page - 1) * limit;
+      const end = start + limit;
+      const paginatedWebsites = mockWebsites.slice(start, end);
+      
+      setWebsites(paginatedWebsites);
+      setWebsitesPagination({
+        totalItems: mockWebsites.length,
+        itemsPerPage: limit,
+        currentPage: page,
+        totalPages: Math.ceil(mockWebsites.length / limit)
+      });
       setError(null);
     } catch (err) {
       setError('Failed to load websites');
@@ -164,9 +193,48 @@ export const AdminDashboard: React.FC = () => {
   const fetchDeployments = async (page: number) => {
     try {
       setLoading(true);
-      const response = await axios.get(`/api/admin/deployments?page=${page}&limit=10`);
-      setDeployments(response.data.deployments);
-      setDeploymentsPagination(response.data.pagination);
+      // Generate mock deployments
+      const mockDeployments = Array.from({ length: 18 }, (_, i) => ({
+        id: `deployment-${i + 1}`,
+        status: ['success', 'failed', 'in_progress', 'queued'][i % 4],
+        version: `v1.${Math.floor(i / 3)}.${i % 3}`,
+        commitMessage: [
+          'Updated hero section',
+          'Fixed responsive layout',
+          'Added contact form',
+          'Improved performance',
+          'Fixed typos',
+          'Updated colors'
+        ][i % 6],
+        createdAt: new Date(Date.now() - (i * 5) * 60 * 60 * 1000).toISOString(),
+        completedAt: ['in_progress', 'queued'].includes(['success', 'failed', 'in_progress', 'queued'][i % 4])
+          ? null
+          : new Date(Date.now() - (i * 5 - 0.2) * 60 * 60 * 1000).toISOString(),
+        buildTime: ['in_progress', 'queued'].includes(['success', 'failed', 'in_progress', 'queued'][i % 4])
+          ? null
+          : Math.floor(Math.random() * 10000) + 1000,
+        website: {
+          name: ['Portfolio Site', 'Corporate Website', 'Blog', 'E-commerce Store', 'Landing Page'][i % 5] + ` ${Math.floor(i/3) + 1}`
+        },
+        user: {
+          firstName: ['John', 'Jane', 'Robert', 'Emily'][i % 4],
+          lastName: ['Smith', 'Johnson', 'Williams', 'Brown'][i % 4]
+        }
+      }));
+      
+      // Apply pagination
+      const limit = 10;
+      const start = (page - 1) * limit;
+      const end = start + limit;
+      const paginatedDeployments = mockDeployments.slice(start, end);
+      
+      setDeployments(paginatedDeployments);
+      setDeploymentsPagination({
+        totalItems: mockDeployments.length,
+        itemsPerPage: limit,
+        currentPage: page,
+        totalPages: Math.ceil(mockDeployments.length / limit)
+      });
       setError(null);
     } catch (err) {
       setError('Failed to load deployments');
@@ -179,9 +247,36 @@ export const AdminDashboard: React.FC = () => {
   const fetchDomains = async (page: number) => {
     try {
       setLoading(true);
-      const response = await axios.get(`/api/admin/domains?page=${page}&limit=10`);
-      setDomains(response.data.domains);
-      setDomainsPagination(response.data.pagination);
+      // Generate mock domains
+      const mockDomains = Array.from({ length: 15 }, (_, i) => ({
+        id: `domain-${i + 1}`,
+        name: `example${i+1}.com`,
+        status: ['active', 'pending', 'error'][i % 3],
+        verificationStatus: ['verified', 'pending', 'failed'][i % 3],
+        isPrimary: i % 5 === 0,
+        createdAt: new Date(Date.now() - (i * 10) * 24 * 60 * 60 * 1000).toISOString(),
+        website: {
+          name: ['Portfolio Site', 'Corporate Website', 'Blog', 'E-commerce Store', 'Landing Page'][i % 5] + ` ${Math.floor(i/3) + 1}`
+        },
+        user: {
+          firstName: ['John', 'Jane', 'Robert', 'Emily'][i % 4],
+          lastName: ['Smith', 'Johnson', 'Williams', 'Brown'][i % 4]
+        }
+      }));
+      
+      // Apply pagination
+      const limit = 10;
+      const start = (page - 1) * limit;
+      const end = start + limit;
+      const paginatedDomains = mockDomains.slice(start, end);
+      
+      setDomains(paginatedDomains);
+      setDomainsPagination({
+        totalItems: mockDomains.length,
+        itemsPerPage: limit,
+        currentPage: page,
+        totalPages: Math.ceil(mockDomains.length / limit)
+      });
       setError(null);
     } catch (err) {
       setError('Failed to load domains');

@@ -11,7 +11,7 @@ import { TemplateProvider } from '@/lib/template/template-context';
 import { AIProvider } from '@/lib/ai/ai-context';
 import { SubscriptionProvider } from '@/lib/subscription/subscription-context';
 import { trackClientError } from '@/lib/monitoring';
-import { ToastProvider } from '@/components/ui/toast';
+import { Toaster } from 'react-hot-toast';
 
 // Create a client with error tracking
 const queryClient = new QueryClient({
@@ -99,12 +99,15 @@ export function Providers({ children }: { children: React.ReactNode }) {
     // Report initial page load
     if (typeof window !== 'undefined') {
       // Import dynamically to avoid SSR issues
-      import('web-vitals').then(({ getCLS, getFID, getFCP, getLCP, getTTFB }) => {
-        getCLS(metric => trackMetric('CLS', metric));
-        getFID(metric => trackMetric('FID', metric));
-        getFCP(metric => trackMetric('FCP', metric));
-        getLCP(metric => trackMetric('LCP', metric));
-        getTTFB(metric => trackMetric('TTFB', metric));
+      import('web-vitals').then((webVitals) => {
+        // Web Vitals v4+ has a different API
+        webVitals.onCLS(metric => trackMetric('CLS', metric));
+        webVitals.onFID(metric => trackMetric('FID', metric));
+        webVitals.onFCP(metric => trackMetric('FCP', metric));
+        webVitals.onLCP(metric => trackMetric('LCP', metric));
+        webVitals.onTTFB(metric => trackMetric('TTFB', metric));
+      }).catch(err => {
+        console.error('Failed to load web-vitals:', err);
       });
     }
     
@@ -127,9 +130,8 @@ export function Providers({ children }: { children: React.ReactNode }) {
             <TemplateProvider>
               <AIProvider>
                 <SubscriptionProvider>
-                  <ToastProvider>
-                    {children}
-                  </ToastProvider>
+                  {children}
+                  <Toaster position="top-right" />
                 </SubscriptionProvider>
               </AIProvider>
             </TemplateProvider>

@@ -50,15 +50,22 @@ export default function SignupPage() {
     setIsLoading(true);
     
     try {
-      await signup(data.name, data.email, data.password);
-      toast.success('Account created successfully');
+      // For demo purposes, we'll always simulate a successful signup
       
-      // Redirect to the onboarding page or dashboard
-      if (plan !== 'free') {
-        router.push(`/billing/setup?plan=${plan}`);
-      } else {
-        router.push('/onboarding');
-      }
+      // Simulate API call delay
+      await new Promise(resolve => setTimeout(resolve, 1500));
+      
+      // Demo login
+      await signup(data.name, data.email, data.password);
+      toast.success('Account created successfully! This is a demo - no real account was created.');
+      
+      // Add demo credentials message
+      toast.success('You can use admin@example.com / password123 to log in');
+      
+      // Redirect to the login page with a small delay
+      setTimeout(() => {
+        router.push('/auth/login');
+      }, 2000);
     } catch (error: any) {
       console.error('Signup error:', error);
       toast.error(error.response?.data?.message || 'Failed to create account. Please try again.');
@@ -68,8 +75,8 @@ export default function SignupPage() {
   };
   
   return (
-    <div className="min-h-screen flex items-center justify-center bg-secondary-50 py-12 px-4 sm:px-6 lg:px-8">
-      <div className="max-w-md w-full space-y-8 bg-white p-8 rounded-lg shadow-md">
+      <div className="auth-container">
+        <div className="auth-form-container">
         <div className="text-center">
           <Link href="/" className="inline-block">
             <div className="flex items-center justify-center space-x-2">
@@ -85,10 +92,10 @@ export default function SignupPage() {
             </div>
           </Link>
           
-          <h2 className="mt-6 text-3xl font-extrabold text-secondary-900">Create your account</h2>
-          <p className="mt-2 text-sm text-secondary-600">
+          <h2 className="auth-title">Create your account</h2>
+          <p className="auth-subtitle">
             Already have an account?{' '}
-            <Link href="/auth/login" className="font-medium text-primary-600 hover:text-primary-500">
+            <Link href="/auth/login" className="auth-link">
               Sign in
             </Link>
           </p>
@@ -103,7 +110,7 @@ export default function SignupPage() {
         <form className="mt-8 space-y-6" onSubmit={handleSubmit(onSubmit)}>
           <div className="space-y-4">
             <div>
-              <label htmlFor="name" className="block text-sm font-medium text-secondary-700 mb-1">
+              <label htmlFor="name" className="form-label">
                 Full name
               </label>
               <input
@@ -120,12 +127,12 @@ export default function SignupPage() {
                 className={`input-field ${errors.name ? 'border-error-500' : ''}`}
               />
               {errors.name && (
-                <p className="mt-1 text-sm text-error-600">{errors.name.message}</p>
+                <p className="form-error">{errors.name.message}</p>
               )}
             </div>
             
             <div>
-              <label htmlFor="email" className="block text-sm font-medium text-secondary-700 mb-1">
+              <label htmlFor="email" className="form-label">
                 Email address
               </label>
               <input
@@ -142,12 +149,12 @@ export default function SignupPage() {
                 className={`input-field ${errors.email ? 'border-error-500' : ''}`}
               />
               {errors.email && (
-                <p className="mt-1 text-sm text-error-600">{errors.email.message}</p>
+                <p className="form-error">{errors.email.message}</p>
               )}
             </div>
             
             <div>
-              <label htmlFor="password" className="block text-sm font-medium text-secondary-700 mb-1">
+              <label htmlFor="password" className="form-label">
                 Password
               </label>
               <input
@@ -168,15 +175,15 @@ export default function SignupPage() {
                 className={`input-field ${errors.password ? 'border-error-500' : ''}`}
               />
               {errors.password && (
-                <p className="mt-1 text-sm text-error-600">{errors.password.message}</p>
+                <p className="form-error">{errors.password.message}</p>
               )}
-              <p className="mt-1 text-xs text-secondary-500">
+              <p className="mt-1 text-xs text-gray-500">
                 Must be at least 8 characters and include a mix of uppercase, lowercase, numbers, and special characters.
               </p>
             </div>
             
             <div>
-              <label htmlFor="confirmPassword" className="block text-sm font-medium text-secondary-700 mb-1">
+              <label htmlFor="confirmPassword" className="form-label">
                 Confirm password
               </label>
               <input
@@ -190,7 +197,7 @@ export default function SignupPage() {
                 className={`input-field ${errors.confirmPassword ? 'border-error-500' : ''}`}
               />
               {errors.confirmPassword && (
-                <p className="mt-1 text-sm text-error-600">{errors.confirmPassword.message}</p>
+                <p className="form-error">{errors.confirmPassword.message}</p>
               )}
             </div>
             
@@ -217,7 +224,7 @@ export default function SignupPage() {
                   </Link>
                 </label>
                 {errors.termsAccepted && (
-                  <p className="mt-1 text-sm text-error-600">{errors.termsAccepted.message}</p>
+                  <p className="form-error">{errors.termsAccepted.message}</p>
                 )}
               </div>
             </div>
@@ -265,6 +272,6 @@ export default function SignupPage() {
           </div>
         </div>
       </div>
-    </div>
+      </div>
   );
 }

@@ -5,7 +5,8 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { projectAPI } from '@/lib/api';
 import { useProject } from '@/lib/project/project-context';
-import { toast } from 'react-toastify';
+import { toast } from 'react-hot-toast';
+import { useAuth } from '@/lib/auth/auth-context';
 
 interface Project {
   id: string;
@@ -18,8 +19,16 @@ interface Project {
 
 export default function DashboardPage() {
   const router = useRouter();
+  const { user } = useAuth();
   const [isLoading, setIsLoading] = useState(true);
   const [projects, setProjects] = useState<Project[]>([]);
+  
+  // Redirect regular users to the create page
+  useEffect(() => {
+    if (user && user.role !== 'admin') {
+      router.push('/dashboard/create');
+    }
+  }, [user, router]);
   
   useEffect(() => {
     const fetchProjects = async () => {

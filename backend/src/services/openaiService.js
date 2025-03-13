@@ -1,4 +1,4 @@
-const { Configuration, OpenAIApi } = require('openai');
+const OpenAI = require('openai');
 const logger = require('../utils/logger');
 const cacheService = require('./cacheService');
 
@@ -6,16 +6,23 @@ class OpenAIService {
   constructor() {
     // Initialize OpenAI with API key from environment variables
     const apiKey = process.env.OPENAI_API_KEY;
+    
     if (!apiKey) {
       logger.error('OpenAI API key is not set. AI features will not function properly.');
+      // Create a dummy OpenAI instance with a fallback key that won't work but won't crash either
+      this.openai = null;
+    } else {
+      this.openai = new OpenAI({
+        apiKey: apiKey,
+      });
     }
     
-    const configuration = new Configuration({
-      apiKey: apiKey,
-    });
-    
-    this.openai = new OpenAIApi(configuration);
     this.model = process.env.OPENAI_MODEL || 'gpt-3.5-turbo'; // Default to GPT-3.5, but allow configuration
+  }
+  
+  // Helper to check if OpenAI is configured
+  isConfigured() {
+    return this.openai !== null;
   }
 
   /**
@@ -47,6 +54,15 @@ class OpenAIService {
         logger.debug('Returning cached content for:', { elementType, prompt: prompt.substring(0, 30) + '...' });
         return cachedResult;
       }
+    }
+    
+    // Check if OpenAI is configured
+    if (!this.isConfigured()) {
+      logger.error('Cannot generate content: OpenAI API key not configured');
+      return {
+        error: 'AI service not configured',
+        message: 'OpenAI API key is missing. Please configure it in your environment variables.'
+      };
     }
     
     // Set the system prompt based on element type
@@ -142,7 +158,7 @@ Return JSON with these fields:
     }
 
     try {
-      const response = await this.openai.createChatCompletion({
+      const response = await this.openai.chat.completions.create({
         model: this.model,
         messages: [
           { role: 'system', content: systemPrompt },
@@ -152,7 +168,7 @@ Return JSON with these fields:
         response_format: { type: 'json_object' }
       });
 
-      const responseText = response.data.choices[0].message.content;
+      const responseText = response.choices[0].message.content;
       const result = JSON.parse(responseText);
       
       // Cache the result for future use
@@ -196,6 +212,15 @@ Return JSON with these fields:
         logger.debug('Returning cached suggestions for:', { type, prompt: prompt.substring(0, 30) + '...' });
         return cachedResult;
       }
+    }
+    
+    // Check if OpenAI is configured
+    if (!this.isConfigured()) {
+      logger.error('Cannot generate suggestions: OpenAI API key not configured');
+      return {
+        error: 'AI service not configured',
+        message: 'OpenAI API key is missing. Please configure it in your environment variables.'
+      };
     }
     
     let systemPrompt = `You are an expert website design assistant.
@@ -347,7 +372,7 @@ Return a JSON array of 3 suggestions with this structure:
     }
 
     try {
-      const response = await this.openai.createChatCompletion({
+      const response = await this.openai.chat.completions.create({
         model: this.model,
         messages: [
           { role: 'system', content: systemPrompt },
@@ -357,7 +382,7 @@ Return a JSON array of 3 suggestions with this structure:
         response_format: { type: 'json_object' }
       });
 
-      const responseText = response.data.choices[0].message.content;
+      const responseText = response.choices[0].message.content;
       const result = JSON.parse(responseText);
       
       // Cache the result for future use (suggestions have a shorter ttl)
@@ -382,6 +407,15 @@ Return a JSON array of 3 suggestions with this structure:
    */
   async modifyContent(params) {
     const { content, action, parameters = {} } = params;
+    
+    // Check if OpenAI is configured
+    if (!this.isConfigured()) {
+      logger.error('Cannot modify content: OpenAI API key not configured');
+      return {
+        error: 'AI service not configured',
+        message: 'OpenAI API key is missing. Please configure it in your environment variables.'
+      };
+    }
     
     // Create a system prompt based on the requested action
     let systemPrompt;
@@ -424,7 +458,7 @@ Return your response as a JSON object with a single field 'content' containing t
     }
 
     try {
-      const response = await this.openai.createChatCompletion({
+      const response = await this.openai.chat.completions.create({
         model: this.model,
         messages: [
           { role: 'system', content: systemPrompt },
@@ -434,7 +468,7 @@ Return your response as a JSON object with a single field 'content' containing t
         response_format: { type: 'json_object' }
       });
 
-      const responseText = response.data.choices[0].message.content;
+      const responseText = response.choices[0].message.content;
       return JSON.parse(responseText);
     } catch (error) {
       logger.error('Error modifying content with OpenAI:', error);
@@ -453,6 +487,15 @@ Return your response as a JSON object with a single field 'content' containing t
    */
   async generateLayout(params) {
     const { websiteId, pageId, prompt, pageType = 'landing' } = params;
+    
+    // Check if OpenAI is configured
+    if (!this.isConfigured()) {
+      logger.error('Cannot generate layout: OpenAI API key not configured');
+      return {
+        error: 'AI service not configured',
+        message: 'OpenAI API key is missing. Please configure it in your environment variables.'
+      };
+    }
     
     const systemPrompt = `You are an expert website layout designer.
 Generate a structured layout for a ${pageType} page based on the user's prompt.
@@ -494,7 +537,7 @@ Format your response as a JSON object with this structure:
 }`;
 
     try {
-      const response = await this.openai.createChatCompletion({
+      const response = await this.openai.chat.completions.create({
         model: this.model,
         messages: [
           { role: 'system', content: systemPrompt },
@@ -504,7 +547,7 @@ Format your response as a JSON object with this structure:
         response_format: { type: 'json_object' }
       });
 
-      const responseText = response.data.choices[0].message.content;
+      const responseText = response.choices[0].message.content;
       return JSON.parse(responseText);
     } catch (error) {
       logger.error('Error generating layout with OpenAI:', error);
@@ -523,6 +566,15 @@ Format your response as a JSON object with this structure:
    */
   async generateStyle(params) {
     const { websiteId, prompt, existingColors, existingFonts } = params;
+    
+    // Check if OpenAI is configured
+    if (!this.isConfigured()) {
+      logger.error('Cannot generate style: OpenAI API key not configured');
+      return {
+        error: 'AI service not configured',
+        message: 'OpenAI API key is missing. Please configure it in your environment variables.'
+      };
+    }
     
     // Construct a context string for existing styles if provided
     let existingStyleContext = '';
@@ -586,7 +638,7 @@ Return your response as a JSON object with this structure:
 }`;
 
     try {
-      const response = await this.openai.createChatCompletion({
+      const response = await this.openai.chat.completions.create({
         model: this.model,
         messages: [
           { role: 'system', content: systemPrompt },
@@ -596,7 +648,7 @@ Return your response as a JSON object with this structure:
         response_format: { type: 'json_object' }
       });
 
-      const responseText = response.data.choices[0].message.content;
+      const responseText = response.choices[0].message.content;
       return JSON.parse(responseText);
     } catch (error) {
       logger.error('Error generating style with OpenAI:', error);
@@ -614,6 +666,15 @@ Return your response as a JSON object with this structure:
    */
   async generateColorScheme(params) {
     const { industry, mood, baseColor } = params;
+    
+    // Check if OpenAI is configured
+    if (!this.isConfigured()) {
+      logger.error('Cannot generate color scheme: OpenAI API key not configured');
+      return {
+        error: 'AI service not configured',
+        message: 'OpenAI API key is missing. Please configure it in your environment variables.'
+      };
+    }
     
     let contextPrompt = 'Generate a cohesive color scheme';
     if (industry) contextPrompt += ` for the ${industry} industry`;
@@ -639,7 +700,7 @@ Return your response as a JSON object with these color values:
 Ensure all colors have sufficient contrast for accessibility.`;
 
     try {
-      const response = await this.openai.createChatCompletion({
+      const response = await this.openai.chat.completions.create({
         model: this.model,
         messages: [
           { role: 'system', content: systemPrompt },
@@ -649,7 +710,7 @@ Ensure all colors have sufficient contrast for accessibility.`;
         response_format: { type: 'json_object' }
       });
 
-      const responseText = response.data.choices[0].message.content;
+      const responseText = response.choices[0].message.content;
       return JSON.parse(responseText);
     } catch (error) {
       logger.error('Error generating color scheme with OpenAI:', error);
@@ -666,6 +727,15 @@ Ensure all colors have sufficient contrast for accessibility.`;
    */
   async generateFontPairings(params) {
     const { style, industry } = params;
+    
+    // Check if OpenAI is configured
+    if (!this.isConfigured()) {
+      logger.error('Cannot generate font pairings: OpenAI API key not configured');
+      return {
+        error: 'AI service not configured',
+        message: 'OpenAI API key is missing. Please configure it in your environment variables.'
+      };
+    }
     
     let contextPrompt = 'Generate font pairings';
     if (style) contextPrompt += ` with a ${style} style`;
@@ -695,7 +765,7 @@ Return your response as a JSON array with this structure:
 Use only fonts available in Google Fonts. Ensure the pairings are harmonious and appropriate for web use.`;
 
     try {
-      const response = await this.openai.createChatCompletion({
+      const response = await this.openai.chat.completions.create({
         model: this.model,
         messages: [
           { role: 'system', content: systemPrompt },
@@ -705,7 +775,7 @@ Use only fonts available in Google Fonts. Ensure the pairings are harmonious and
         response_format: { type: 'json_object' }
       });
 
-      const responseText = response.data.choices[0].message.content;
+      const responseText = response.choices[0].message.content;
       return JSON.parse(responseText);
     } catch (error) {
       logger.error('Error generating font pairings with OpenAI:', error);

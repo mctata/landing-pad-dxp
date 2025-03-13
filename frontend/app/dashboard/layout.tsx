@@ -1,6 +1,7 @@
 'use client';
 
 import { DashboardNavigation } from '@/components/dashboard/Navigation';
+import { ToastProvider } from '@/components/ui/toast';
 
 export default function DashboardLayout({
   children,
@@ -9,8 +10,10 @@ export default function DashboardLayout({
 }) {
   return (
     <div className="min-h-screen bg-gray-50">
-      <DashboardNavigation />
-      <main>{children}</main>
+      <ToastProvider>
+        <DashboardNavigation />
+        <main>{children}</main>
+      </ToastProvider>
     </div>
   );
 }

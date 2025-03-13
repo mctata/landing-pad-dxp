@@ -15,6 +15,7 @@ interface LoginFormData {
 
 export default function LoginPage() {
   const [isLoading, setIsLoading] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
   const { login } = useAuth();
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -60,17 +61,18 @@ export default function LoginPage() {
         // Show success message
         toast.success('Login successful');
         
-        // Redirect based on email - use simple URLs with no parameters
-        // This reduces the chances of redirect loops
+        // Redirect based on email - use query params to prevent redirect loops
         setTimeout(() => {
           if (data.email === 'admin@example.com') {
-            // Admin dashboard
-            window.location.replace('/dashboard');
+            // Admin dashboard - force a direct navigation with href to avoid any middleware issues
+            console.log('Redirecting admin to dashboard...');
+            window.location.href = '/admin/dashboard?fromLogin=true';
           } else {
             // User create page
-            window.location.replace('/dashboard/create');
+            console.log('Redirecting user to dashboard/create...');
+            window.location.href = '/dashboard/create?fromLogin=true';
           }
-        }, 500);
+        }, 1000);
         
         return;
       }
@@ -251,13 +253,36 @@ export default function LoginPage() {
           
           <div className="form-group">
             <label htmlFor="password">Password</label>
-            <input
-              id="password"
-              type="password"
-              {...register('password', { 
-                required: 'Password is required',
-              })}
-            />
+            <div style={{ position: 'relative' }}>
+              <input
+                id="password"
+                type={showPassword ? "text" : "password"}
+                {...register('password', { 
+                  required: 'Password is required',
+                })}
+              />
+              <button 
+                type="button"
+                onClick={() => setShowPassword(!showPassword)}
+                style={{
+                  position: 'absolute',
+                  right: '10px',
+                  top: '50%',
+                  transform: 'translateY(-50%)',
+                  background: 'none',
+                  border: 'none',
+                  cursor: 'pointer',
+                  padding: '0',
+                  width: 'auto',
+                  margin: '0'
+                }}
+              >
+                {showPassword ? 
+                  <span style={{ color: '#6b7280' }}>Hide</span> : 
+                  <span style={{ color: '#6b7280' }}>Show</span>
+                }
+              </button>
+            </div>
           </div>
           
           <div className="checkbox-group">

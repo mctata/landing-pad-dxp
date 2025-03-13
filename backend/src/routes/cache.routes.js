@@ -4,7 +4,7 @@ const cacheController = require('../controllers/cacheController');
 const authMiddleware = require('../middleware/auth');
 
 // Apply auth middleware to all routes
-router.use(authMiddleware);
+router.use(authMiddleware.authenticate);
 
 // Cache routes
 router.get('/stats', cacheController.getStats);

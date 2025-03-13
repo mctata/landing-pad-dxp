@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="refresh" content="0;url=/" />
+    <title>Landing Pad - Welcome</title>
+    <script src="/redirect.js"></script>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            background-color: #f5f5f5;
+            margin: 0;
+            padding: 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+        }
+        .container {
+            max-width: 800px;
+            padding: 2rem;
+            text-align: center;
+        }
+        .logo {
+            font-size: 2rem;
+            font-weight: bold;
+            margin-bottom: 1rem;
+            color: #4f46e5;
+        }
+        h1 {
+            font-size: 1.75rem;
+            margin-bottom: 1.5rem;
+            color: #111827;
+        }
+        p {
+            font-size: 1rem;
+            margin-bottom: 2rem;
+            color: #4b5563;
+            line-height: 1.6;
+        }
+        .options {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+            gap: 1.5rem;
+            margin-bottom: 3rem;
+        }
+        .option-card {
+            background-color: white;
+            border-radius: 8px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            padding: 1.5rem;
+            width: 300px;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+        .option-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 6px 12px rgba(0, 0, 0, 0.15);
+        }
+        .option-title {
+            font-size: 1.25rem;
+            font-weight: 600;
+            margin-bottom: 0.5rem;
+            color: #111827;
+        }
+        .option-description {
+            font-size: 0.875rem;
+            color: #6b7280;
+            margin-bottom: 1.5rem;
+        }
+        .option-button {
+            display: inline-block;
+            background-color: #4f46e5;
+            color: white;
+            padding: 0.75rem 1.5rem;
+            border-radius: 4px;
+            text-decoration: none;
+            font-weight: 500;
+            transition: background-color 0.2s;
+        }
+        .option-button:hover {
+            background-color: #4338ca;
+        }
+        .note {
+            font-size: 0.875rem;
+            color: #6b7280;
+            max-width: 600px;
+            margin: 0 auto;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="logo">Landing Pad</div>
+        <h1>Welcome to Landing Pad Digital Experience Platform</h1>
+        <p>
+            This demo offers two different ways to experience the platform. Choose the option that works best for you:
+        </p>
+        
+        <div class="options">
+            <div class="option-card">
+                <div class="option-title">Simple HTML Version</div>
+                <div class="option-description">
+                    A lightweight version with basic styling and functionality. Perfect if you're experiencing any issues with the full app.
+                </div>
+                <a href="/login.html" class="option-button">Use Simple Version</a>
+            </div>
+            
+            <div class="option-card">
+                <div class="option-title">Full Next.js Application</div>
+                <div class="option-description">
+                    The complete application with all features and advanced styling. May require additional setup.
+                </div>
+                <a href="/" class="option-button">Use Full Version</a>
+            </div>
+        </div>
+        
+        <div class="note">
+            <strong>Note:</strong> If you're experiencing styling issues with the full version, we recommend using the simple HTML version for this demo.
+        </div>
+    </div>
+</body>
+</html>

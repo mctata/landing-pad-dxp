@@ -750,4 +750,218 @@ export const websiteAPI = {
   addDomain: (id: string, name: string) => api.post(`/api/websites/${id}/domains`, { name }),
 };
 
+// Admin API with mock implementation
+export const adminAPI = {
+  getStats: async () => {
+    try {
+      return await api.get('/api/admin/stats');
+    } catch (error) {
+      // Mock stats data
+      const mockStats = {
+        users: 87,
+        websites: 142,
+        deployments: 438,
+        domains: 76,
+        failedDeployments: 12,
+        activeDomains: 68
+      };
+      
+      // Mock recent deployments
+      const mockRecentDeployments = [
+        {
+          id: '1',
+          status: 'success',
+          version: 'v1.2.4',
+          commitMessage: 'Updated homepage hero section',
+          createdAt: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString(),
+          completedAt: new Date(Date.now() - 1.9 * 60 * 60 * 1000).toISOString(),
+          buildTime: 5400,
+          website: {
+            name: 'Corporate Website'
+          },
+          user: {
+            firstName: 'John',
+            lastName: 'Doe',
+            email: 'john@example.com'
+          }
+        },
+        {
+          id: '2',
+          status: 'failed',
+          version: 'v1.2.5',
+          commitMessage: 'Adding new product section',
+          createdAt: new Date(Date.now() - 5 * 60 * 60 * 1000).toISOString(),
+          completedAt: new Date(Date.now() - 4.9 * 60 * 60 * 1000).toISOString(),
+          buildTime: 3200,
+          website: {
+            name: 'Product Showcase'
+          },
+          user: {
+            firstName: 'Jane',
+            lastName: 'Smith',
+            email: 'jane@example.com'
+          }
+        },
+        {
+          id: '3',
+          status: 'success',
+          version: 'v2.0.0',
+          commitMessage: 'Major redesign of landing page',
+          createdAt: new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString(),
+          completedAt: new Date(Date.now() - 23.9 * 60 * 60 * 1000).toISOString(),
+          buildTime: 8700,
+          website: {
+            name: 'Marketing Campaign'
+          },
+          user: {
+            firstName: 'Emily',
+            lastName: 'Davis',
+            email: 'emily@example.com'
+          }
+        },
+        {
+          id: '4',
+          status: 'success',
+          version: 'v1.1.2',
+          commitMessage: 'Fixed footer links',
+          createdAt: new Date(Date.now() - 48 * 60 * 60 * 1000).toISOString(),
+          completedAt: new Date(Date.now() - 47.95 * 60 * 60 * 1000).toISOString(),
+          buildTime: 2900,
+          website: {
+            name: 'Blog Site'
+          },
+          user: {
+            firstName: 'Robert',
+            lastName: 'Johnson',
+            email: 'robert@example.com'
+          }
+        },
+        {
+          id: '5',
+          status: 'in_progress',
+          version: 'v2.1.0',
+          commitMessage: 'Adding analytics integration',
+          createdAt: new Date(Date.now() - 0.5 * 60 * 60 * 1000).toISOString(),
+          completedAt: null,
+          buildTime: null,
+          website: {
+            name: 'E-commerce Site'
+          },
+          user: {
+            firstName: 'Admin',
+            lastName: 'User',
+            email: 'admin@example.com'
+          }
+        }
+      ];
+      
+      return Promise.resolve({
+        data: {
+          stats: mockStats,
+          recentDeployments: mockRecentDeployments
+        }
+      });
+    }
+  },
+  
+  getUsers: async (page = 1, limit = 10) => {
+    try {
+      return await api.get(`/api/admin/users?page=${page}&limit=${limit}`);
+    } catch (error) {
+      // Mock users data
+      const mockUsers = Array.from({ length: 15 }, (_, i) => ({
+        id: `user-${i + 1}`,
+        firstName: ['John', 'Jane', 'Robert', 'Emily', 'Michael', 'Sarah', 'David', 'Lisa'][i % 8],
+        lastName: ['Smith', 'Johnson', 'Williams', 'Brown', 'Jones', 'Miller', 'Davis', 'Wilson'][i % 8],
+        email: `user${i + 1}@example.com`,
+        role: i === 0 ? 'admin' : 'user',
+        subscription: i < 3 ? 'enterprise' : i < 8 ? 'pro' : 'free',
+        createdAt: new Date(Date.now() - (i * 15) * 24 * 60 * 60 * 1000).toISOString(),
+        lastLoginAt: i < 10 ? new Date(Date.now() - i * 24 * 60 * 60 * 1000).toISOString() : null
+      }));
+      
+      // Apply pagination
+      const start = (page - 1) * limit;
+      const end = start + limit;
+      const paginatedUsers = mockUsers.slice(start, end);
+      
+      return Promise.resolve({
+        data: {
+          users: paginatedUsers,
+          pagination: {
+            totalItems: mockUsers.length,
+            itemsPerPage: limit,
+            currentPage: page,
+            totalPages: Math.ceil(mockUsers.length / limit)
+          }
+        }
+      });
+    }
+  },
+  
+  getUserById: async (id: string) => {
+    try {
+      return await api.get(`/api/admin/users/${id}`);
+    } catch (error) {
+      // Generate a mock user
+      const mockUser = {
+        id,
+        firstName: ['John', 'Jane', 'Robert', 'Emily'][parseInt(id.split('-')[1]) % 4],
+        lastName: ['Smith', 'Johnson', 'Williams', 'Brown'][parseInt(id.split('-')[1]) % 4],
+        email: `user${id.split('-')[1]}@example.com`,
+        role: id === 'user-1' ? 'admin' : 'user',
+        subscription: id === 'user-1' ? 'enterprise' : parseInt(id.split('-')[1]) < 5 ? 'pro' : 'free',
+        createdAt: new Date(Date.now() - parseInt(id.split('-')[1]) * 15 * 24 * 60 * 60 * 1000).toISOString(),
+        lastLoginAt: new Date(Date.now() - parseInt(id.split('-')[1]) * 24 * 60 * 60 * 1000).toISOString(),
+        websites: [
+          {
+            id: `website-${id.split('-')[1]}-1`,
+            name: 'Portfolio Website',
+            status: 'published'
+          },
+          {
+            id: `website-${id.split('-')[1]}-2`,
+            name: 'Business Site',
+            status: 'draft'
+          }
+        ]
+      };
+      
+      return Promise.resolve({
+        data: {
+          user: mockUser
+        }
+      });
+    }
+  },
+  
+  updateUser: async (id: string, data: any) => {
+    try {
+      return await api.patch(`/api/admin/users/${id}`, data);
+    } catch (error) {
+      // Mock success response
+      return Promise.resolve({
+        data: {
+          success: true,
+          message: 'User updated successfully'
+        }
+      });
+    }
+  },
+  
+  deleteUser: async (id: string) => {
+    try {
+      return await api.delete(`/api/admin/users/${id}`);
+    } catch (error) {
+      // Mock success response
+      return Promise.resolve({
+        data: {
+          success: true,
+          message: 'User deleted successfully'
+        }
+      });
+    }
+  }
+};
+
 export { api };

@@ -21,7 +21,7 @@ const upload = multer({
  */
 
 // Apply auth middleware to all routes in this router
-router.use(authMiddleware);
+router.use(authMiddleware.authenticate);
 
 // Dashboard statistics
 router.get('/stats', adminController.getStats);

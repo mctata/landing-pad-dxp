@@ -1,0 +1,4 @@
+# Redirect static HTML files to their Next.js counterparts
+/index.html  /  301
+/login.html  /auth/login  301
+/*.html  /:splat  301

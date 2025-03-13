@@ -19,7 +19,9 @@
     "@tanstack/react-query": "^5.17.19",
     "@types/react-datepicker": "^6.2.0",
     "axios": "^1.6.7",
+    "critters": "^0.0.23",
     "next": "^14.1.0",
+    "next-auth": "^4.24.11",
     "react": "^18.2.0",
     "react-beautiful-dnd": "^13.1.1",
     "react-datepicker": "^8.2.0",
@@ -28,6 +30,7 @@
     "react-toastify": "^10.0.4",
     "recharts": "^2.15.1",
     "sentry": "^0.1.2",
+    "sonner": "^2.0.1",
     "web-vitals": "^4.2.4",
     "winston": "^3.17.0",
     "zustand": "^4.5.0"

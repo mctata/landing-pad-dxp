@@ -8,7 +8,7 @@ import { ImageElement } from './elements/ImageElement';
 import { GalleryElement } from './elements/GalleryElement';
 import { TestimonialsElement } from './elements/TestimonialsElement';
 import { PricingElement } from './elements/PricingElement';
-import { ContactElement } from './elements/ContactElement';
+import { default as ContactElement } from './elements/ContactElement';
 import { CtaElement } from './elements/CtaElement';
 import { CustomHtmlElement } from './elements/CustomHtmlElement';
 

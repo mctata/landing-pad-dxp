@@ -21,7 +21,7 @@ const upload = multer({
 });
 
 // Apply auth middleware to all routes
-router.use(authMiddleware);
+router.use(authMiddleware.authenticate);
 
 // Image upload and management
 router.post('/upload', upload.single('image'), imageController.uploadImage);

@@ -1,7 +1,7 @@
 'use client';
 
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { toast } from 'react-toastify';
+import { useToast } from '@/components/ui/toast';
 import { projectAPI } from '../api';
 
 interface Project {
@@ -38,6 +38,7 @@ export function ProjectProvider({ children }: { children: React.ReactNode }) {
   const [projects, setProjects] = useState<Project[]>([]);
   const [currentProject, setCurrentProject] = useState<Project | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const { toast } = useToast();
 
   // Fetch all projects
   const fetchProjects = async () => {
@@ -46,7 +47,11 @@ export function ProjectProvider({ children }: { children: React.ReactNode }) {
       const response = await projectAPI.getProjects();
       setProjects(response.data.projects);
     } catch (error: any) {
-      toast.error(error.response?.data?.message || 'Failed to fetch projects');
+      toast({
+        title: 'Error',
+        message: error.response?.data?.message || 'Failed to fetch projects',
+        type: 'error'
+      });
     } finally {
       setIsLoading(false);
     }
@@ -59,7 +64,11 @@ export function ProjectProvider({ children }: { children: React.ReactNode }) {
       const response = await projectAPI.getProjectById(id);
       setCurrentProject(response.data.project);
     } catch (error: any) {
-      toast.error(error.response?.data?.message || 'Failed to fetch project');
+      toast({
+        title: 'Error',
+        message: error.response?.data?.message || 'Failed to fetch project',
+        type: 'error'
+      });
       throw error;
     } finally {
       setIsLoading(false);
@@ -76,10 +85,18 @@ export function ProjectProvider({ children }: { children: React.ReactNode }) {
       // Update projects list
       setProjects((prevProjects) => [...prevProjects, newProject]);
       
-      toast.success('Project created successfully');
+      toast({
+        title: 'Success',
+        message: 'Project created successfully',
+        type: 'success'
+      });
       return newProject;
     } catch (error: any) {
-      toast.error(error.response?.data?.message || 'Failed to create project');
+      toast({
+        title: 'Error',
+        message: error.response?.data?.message || 'Failed to create project',
+        type: 'error'
+      });
       throw error;
     } finally {
       setIsLoading(false);
@@ -103,10 +120,18 @@ export function ProjectProvider({ children }: { children: React.ReactNode }) {
         prevProjects.map((project) => (project.id === id ? updatedProject : project))
       );
       
-      toast.success('Project updated successfully');
+      toast({
+        title: 'Success',
+        message: 'Project updated successfully',
+        type: 'success'
+      });
       return updatedProject;
     } catch (error: any) {
-      toast.error(error.response?.data?.message || 'Failed to update project');
+      toast({
+        title: 'Error',
+        message: error.response?.data?.message || 'Failed to update project',
+        type: 'error'
+      });
       throw error;
     } finally {
       setIsLoading(false);
@@ -127,9 +152,17 @@ export function ProjectProvider({ children }: { children: React.ReactNode }) {
         setCurrentProject(null);
       }
       
-      toast.success('Project deleted successfully');
+      toast({
+        title: 'Success',
+        message: 'Project deleted successfully',
+        type: 'success'
+      });
     } catch (error: any) {
-      toast.error(error.response?.data?.message || 'Failed to delete project');
+      toast({
+        title: 'Error',
+        message: error.response?.data?.message || 'Failed to delete project',
+        type: 'error'
+      });
       throw error;
     } finally {
       setIsLoading(false);
@@ -153,10 +186,18 @@ export function ProjectProvider({ children }: { children: React.ReactNode }) {
         prevProjects.map((project) => (project.id === id ? publishedProject : project))
       );
       
-      toast.success('Project published successfully');
+      toast({
+        title: 'Success',
+        message: 'Project published successfully',
+        type: 'success'
+      });
       return publishedProject;
     } catch (error: any) {
-      toast.error(error.response?.data?.message || 'Failed to publish project');
+      toast({
+        title: 'Error',
+        message: error.response?.data?.message || 'Failed to publish project',
+        type: 'error'
+      });
       throw error;
     } finally {
       setIsLoading(false);

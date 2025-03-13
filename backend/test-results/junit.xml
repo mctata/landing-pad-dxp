@@ -1,25 +1,23 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<testsuites name="jest tests" tests="10" failures="0" errors="0" time="0.606">
-  <testsuite name="AI Controller" errors="0" failures="0" skipped="0" timestamp="2025-03-12T03:53:56" time="0.552" tests="10">
-    <testcase classname="AI Controller generateContent should generate content successfully" name="AI Controller generateContent should generate content successfully" time="0.011">
+<testsuites name="jest tests" tests="9" failures="0" errors="0" time="3.734">
+  <testsuite name="Security Middleware" errors="0" failures="0" skipped="0" timestamp="2025-03-12T07:26:58" time="3.586" tests="9">
+    <testcase classname="Security Middleware Rate Limiting should apply rate limiting with proper configuration" name="Security Middleware Rate Limiting should apply rate limiting with proper configuration" time="0.013">
     </testcase>
-    <testcase classname="AI Controller generateContent should return 400 if validation fails" name="AI Controller generateContent should return 400 if validation fails" time="0.001">
+    <testcase classname="Security Middleware Speed Limiting should apply speed limiting with proper configuration" name="Security Middleware Speed Limiting should apply speed limiting with proper configuration" time="0.001">
     </testcase>
-    <testcase classname="AI Controller generateContent should return 500 if service throws an error" name="AI Controller generateContent should return 500 if service throws an error" time="0.001">
+    <testcase classname="Security Middleware Parameter Pollution Protection should apply hpp middleware" name="Security Middleware Parameter Pollution Protection should apply hpp middleware" time="0.001">
     </testcase>
-    <testcase classname="AI Controller generateLayout should generate layout successfully" name="AI Controller generateLayout should generate layout successfully" time="0.002">
+    <testcase classname="Security Middleware Content Security Policy should apply CSP with secure directives" name="Security Middleware Content Security Policy should apply CSP with secure directives" time="0.001">
     </testcase>
-    <testcase classname="AI Controller generateLayout should use default pageType if not provided" name="AI Controller generateLayout should use default pageType if not provided" time="0.001">
+    <testcase classname="Security Middleware Webhook Signature Verification should allow requests with valid signatures" name="Security Middleware Webhook Signature Verification should allow requests with valid signatures" time="0.489">
     </testcase>
-    <testcase classname="AI Controller generateStyle should generate style successfully" name="AI Controller generateStyle should generate style successfully" time="0.002">
+    <testcase classname="Security Middleware Webhook Signature Verification should reject requests with invalid signatures" name="Security Middleware Webhook Signature Verification should reject requests with invalid signatures" time="0.006">
     </testcase>
-    <testcase classname="AI Controller modifyContent should modify content successfully" name="AI Controller modifyContent should modify content successfully" time="0.001">
+    <testcase classname="Security Middleware Webhook Signature Verification should handle missing signature headers" name="Security Middleware Webhook Signature Verification should handle missing signature headers" time="0.008">
     </testcase>
-    <testcase classname="AI Controller getSuggestions should get suggestions successfully" name="AI Controller getSuggestions should get suggestions successfully" time="0.001">
+    <testcase classname="Security Middleware verifySignature Function should verify a valid signature" name="Security Middleware verifySignature Function should verify a valid signature" time="0">
     </testcase>
-    <testcase classname="AI Controller generateColorScheme should generate color scheme successfully" name="AI Controller generateColorScheme should generate color scheme successfully" time="0.002">
-    </testcase>
-    <testcase classname="AI Controller generateFontPairings should generate font pairings successfully" name="AI Controller generateFontPairings should generate font pairings successfully" time="0.001">
+    <testcase classname="Security Middleware verifySignature Function should reject an invalid signature" name="Security Middleware verifySignature Function should reject an invalid signature" time="0">
     </testcase>
   </testsuite>
 </testsuites>

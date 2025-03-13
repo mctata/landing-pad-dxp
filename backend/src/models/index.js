@@ -4,7 +4,9 @@ const Template = require('./Template');
 const Website = require('./Website');
 const Deployment = require('./Deployment');
 const Domain = require('./Domain');
-const Content = require('./Content');
+const { sequelize } = require('../config/database');
+const ContentModel = require('./Content');
+const Content = ContentModel(sequelize);
 
 // Define relationships
 User.hasMany(Project, {

@@ -114,8 +114,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       
       // Redirect based on user role - use direct navigation for more reliable redirection
       if (response.data.user.role === 'admin') {
-        // Admin goes to dashboard - add fromLogin to prevent middleware redirect loops
-        window.location.href = '/dashboard?fromLogin=true';
+        // Admin goes to admin dashboard - add fromLogin to prevent middleware redirect loops
+        window.location.href = '/admin/dashboard?fromLogin=true';
       } else {
         // Regular users go to create page - add fromLogin to prevent middleware redirect loops
         window.location.href = '/dashboard/create?fromLogin=true';

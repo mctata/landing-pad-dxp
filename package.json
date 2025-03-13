@@ -26,5 +26,8 @@
     "cypress": "^14.1.0",
     "cypress-file-upload": "^5.0.8",
     "start-server-and-test": "^2.0.10"
+  },
+  "dependencies": {
+    "next-auth": "^4.24.11"
   }
 }
