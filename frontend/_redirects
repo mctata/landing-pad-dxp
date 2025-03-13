@@ -1,0 +1,11 @@
+# Netlify redirects file
+
+# Handle all API requests for proxying to backend
+/api/*  https://api.landingpad-digital.com/:splat  200
+
+# Handle routes requiring authentication
+/dashboard/*  /index.html  200
+/admin/*      /index.html  200
+
+# SPA fallback - ensure React Router handles client-side routing
+/*  /index.html  200

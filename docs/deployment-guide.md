@@ -29,17 +29,52 @@ Both frontend and backend are containerized using Docker and deployed using Dock
 
 ## CI/CD Pipeline
 
-The CI/CD pipeline uses GitHub Actions to:
+### Netlify Deployment (Frontend)
 
-1. Run tests
-2. Build Docker images
-3. Push images to Docker Hub
-4. Deploy to staging or production environments
+The frontend application is now configured for deployment with Netlify:
 
-### Workflow Files
+1. **Setup and Authentication**:
+   ```bash
+   # Install Netlify CLI globally
+   npm install -g netlify-cli
+   
+   # Log in to Netlify
+   netlify login
+   ```
 
-- `.github/workflows/ci.yml` - Continuous Integration workflow
-- `.github/workflows/deploy.yml` - Deployment workflow
+2. **Initializing Netlify Project**:
+   ```bash
+   # From the frontend directory
+   cd frontend
+   netlify init
+   ```
+   
+   Follow the prompts to:
+   - Create a new site or use an existing one
+   - Set up build commands and directories
+   - Link to your GitHub repository for CI/CD
+
+3. **Configuring Environment Variables**:
+   In the Netlify dashboard:
+   - Site settings > Build & deploy > Environment variables
+   - Add all necessary environment variables from `.env.production`
+   - Critical variables:
+     - `NEXT_PUBLIC_API_URL`
+     - `NEXT_PUBLIC_SITE_URL` 
+     - `NEXTAUTH_URL`
+     - `NEXTAUTH_SECRET`
+
+4. **Manual Deploy**:
+   ```bash
+   # Deploy to Netlify production
+   netlify deploy --prod
+   ```
+
+5. **Continuous Deployment**:
+   Once connected to GitHub, Netlify will automatically:
+   - Build and deploy when changes are pushed to your main branch
+   - Run build commands defined in netlify.toml
+   - Deploy preview environments for pull requests
 
 ## Local Development Setup
 
@@ -105,19 +140,49 @@ To deploy to production:
 
 ## Environment Variables
 
-### Required Secrets for GitHub Actions
+### Netlify Environment Variables (Frontend)
 
-- `DOCKER_HUB_USERNAME` - Docker Hub username
-- `DOCKER_HUB_ACCESS_TOKEN` - Docker Hub access token
-- `SSH_PRIVATE_KEY` - SSH key for deployment servers
-- `STAGING_HOST` - Staging server hostname (user@hostname)
-- `PRODUCTION_HOST` - Production server hostname (user@hostname)
-- `DATABASE_URL` - Database connection string
-- `JWT_SECRET` - Secret for JWT authentication
-- `API_KEY` - API key for external services
-- `VERCEL_TOKEN` - (Optional) Vercel token if using Vercel deployment
-- `VERCEL_ORG_ID` - (Optional) Vercel organization ID
-- `VERCEL_PROJECT_ID` - (Optional) Vercel project ID
+Set these in the Netlify dashboard under Site settings > Build & deploy > Environment variables:
+
+| Variable | Description | Example |
+|----------|-------------|---------|
+| `NEXT_PUBLIC_API_URL` | Backend API URL | `https://api.landingpad-digital.com` |
+| `NEXT_PUBLIC_SITE_URL` | Frontend URL | `https://landingpad-digital.com` |
+| `NEXTAUTH_URL` | Auth URL (same as site URL) | `https://landingpad-digital.com` |
+| `NEXTAUTH_SECRET` | Secret for NextAuth | Random 32+ character string |
+| `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY` | Stripe key (if using Stripe) | `pk_live_xxx` |
+| `NEXT_PUBLIC_ANALYTICS_ENABLED` | Enable analytics | `true` |
+| `NEXT_PUBLIC_FEATURE_AI_ENABLED` | Enable AI features | `true` |
+
+### Backend Server Environment Variables
+
+Store these in your backend server's environment or as `.env.production` file:
+
+| Variable | Description | Example |
+|----------|-------------|---------|
+| `NODE_ENV` | Environment | `production` |
+| `PORT` | Server port | `3000` |
+| `CORS_ORIGIN` | Frontend URL for CORS | `https://landingpad-digital.com` |
+| `DB_URL` | Database connection string | `postgres://user:password@host:port/db` |
+| `DB_SSL` | Use SSL for database | `true` |
+| `JWT_SECRET` | JWT signing secret | Random 32+ character string |
+| `JWT_ACCESS_SECRET` | Access token secret | Random 32+ character string |
+| `JWT_REFRESH_SECRET` | Refresh token secret | Random 32+ character string |
+| `REDIS_URL` | Redis connection URL | `redis://user:password@host:port` |
+| `OPENAI_API_KEY` | OpenAI API key | `sk_xxx` |
+| `LOG_LEVEL` | Logging verbosity | `info` |
+
+### How to Generate Secure Secrets
+
+Use the following commands to generate secure random strings for your secrets:
+
+```bash
+# Generate a random 32-character string for JWT_SECRET
+openssl rand -base64 32
+
+# Generate a random 64-character hex string
+openssl rand -hex 32
+```
 
 ## Monitoring
 

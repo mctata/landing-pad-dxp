@@ -87,30 +87,68 @@ Landing Pad Digital is a modern website builder that leverages AI to make websit
 
 ## Deployment
 
-The application uses a Docker-based deployment process with GitHub Actions for CI/CD.
+### Netlify Deployment (Frontend)
 
-### Deployment Options
+The frontend application is now configured for deployment on Netlify:
 
-1. **GitHub Actions Automated Deployment**
-   
-   Merges to the `main` branch automatically deploy to staging.
-   
-   For manual deployments:
-   - Go to Actions tab in GitHub
-   - Select "Deploy" workflow
-   - Click "Run workflow"
-   - Choose target environment (staging or production)
-
-2. **Manual Docker Deployment**
-
+1. **Setting Up Netlify:**
    ```bash
-   # Build images
-   docker build -t landingpaddxp/backend:latest backend/
-   docker build -t landingpaddxp/frontend:latest frontend/
+   # Install Netlify CLI globally if not already installed
+   npm install -g netlify-cli
    
-   # Deploy using docker-compose
-   docker-compose -f docker-compose.yml up -d
+   # Login to Netlify
+   netlify login
+   
+   # Initialize Netlify site (from frontend directory)
+   cd frontend
+   netlify init
    ```
+
+2. **Configure Environment Variables:**
+   - Go to Site settings > Build & deploy > Environment variables in Netlify dashboard
+   - Add the variables from `.env.production` with actual production values
+   - Essential variables:
+     - `NEXT_PUBLIC_API_URL`
+     - `NEXT_PUBLIC_SITE_URL`
+     - `NEXTAUTH_URL`
+     - `NEXTAUTH_SECRET`
+     - `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY` (if using Stripe)
+
+3. **Deploy Manually:**
+   ```bash
+   # Deploy to Netlify production
+   netlify deploy --prod
+   ```
+
+4. **Continuous Deployment:**
+   - Connect Netlify to your GitHub repository
+   - Configure build settings:
+     - Build command: `npm run build`
+     - Publish directory: `.next`
+   - Commits to main branch will trigger automatic deployments
+
+### Backend Deployment Options
+
+1. **Docker Deployment:**
+   ```bash
+   # Build the backend image
+   docker build -t landingpaddxp/backend:latest backend/
+   
+   # Run container with environment variables
+   docker run -p 3001:3000 --env-file backend/.env.production landingpaddxp/backend:latest
+   ```
+
+2. **Manual Deployment to VPS/Cloud:**
+   - Provision a server (AWS, DigitalOcean, etc.)
+   - Set up Node.js, PostgreSQL, and Redis
+   - Clone repository and install dependencies
+   - Configure environment variables from `.env.production`
+   - Use PM2 or similar for process management:
+     ```bash
+     npm install -g pm2
+     cd backend
+     pm2 start src/server.js --name "landing-pad-api"
+     ```
 
 For detailed deployment instructions, see the [Deployment Guide](docs/deployment-guide.md).
 
