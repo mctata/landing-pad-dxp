@@ -1,76 +1,71 @@
 const { Sequelize } = require('sequelize');
 const logger = require('../utils/logger');
 
-// Create Sequelize connection
+/**
+ * Create Sequelize connection with proper SSL handling
+ * @returns {Sequelize} Sequelize instance with connection
+ */
 const createSequelizeConnection = () => {
+  // Determine if SSL should be used
+  const useSSL = process.env.DB_SSL === 'true' || process.env.NODE_ENV === 'production';
+  
+  // Configure SSL options based on environment
+  const sslOptions = useSSL ? {
+    require: true,
+    rejectUnauthorized: process.env.NODE_ENV === 'production' && process.env.DB_SSL_REJECT_UNAUTHORIZED !== 'false'
+  } : false;
+  
+  logger.debug(`Database SSL config: ${useSSL ? 'enabled' : 'disabled'}, rejectUnauthorized: ${useSSL ? sslOptions.rejectUnauthorized : 'N/A'}`);
+  
+  // Shared options used in both connection methods
+  const commonOptions = {
+    logging: process.env.NODE_ENV === 'development' ? (msg) => logger.debug(msg) : false,
+    dialectOptions: { ssl: sslOptions },
+    pool: {
+      max: parseInt(process.env.DB_POOL_MAX || '10', 10),
+      min: parseInt(process.env.DB_POOL_MIN || '2', 10),
+      acquire: parseInt(process.env.DB_POOL_ACQUIRE || '30000', 10),
+      idle: parseInt(process.env.DB_POOL_IDLE || '10000', 10)
+    },
+    retry: {
+      match: [
+        /SequelizeConnectionError/,
+        /SequelizeConnectionRefusedError/,
+        /SequelizeHostNotFoundError/,
+        /SequelizeHostNotReachableError/,
+        /SequelizeInvalidConnectionError/,
+        /SequelizeConnectionTimedOutError/
+      ],
+      max: parseInt(process.env.DB_RETRY_MAX || '5', 10)
+    }
+  };
+  
   if (process.env.DB_URL) {
-    // If using connection URL (recommended for production environments)
-    return new Sequelize(process.env.DB_URL, {
-      logging: process.env.NODE_ENV === 'development' ? (msg) => logger.debug(msg) : false,
-      dialectOptions: {
-        ssl: process.env.NODE_ENV === 'production' ? {
-          require: true,
-          rejectUnauthorized: false
-        } : false
-      },
-      pool: {
-        max: 10,                    // Maximum number of connection in pool
-        min: 2,                     // Minimum number of connection in pool
-        acquire: 30000,             // Maximum time (ms) that pool will try to get connection before throwing error
-        idle: 10000                 // Maximum time (ms) that a connection can be idle before being released
-      },
-      retry: {
-        match: [
-          /SequelizeConnectionError/,
-          /SequelizeConnectionRefusedError/,
-          /SequelizeHostNotFoundError/,
-          /SequelizeHostNotReachableError/,
-          /SequelizeInvalidConnectionError/,
-          /SequelizeConnectionTimedOutError/
-        ],
-        max: 5                     // How many times to retry a failing query
-      }
-    });
+    // Using connection URL (recommended for production)
+    logger.debug('Using database connection URL');
+    return new Sequelize(process.env.DB_URL, commonOptions);
   } else {
-    // If using individual connection parameters
+    // Using individual connection parameters
+    logger.debug('Using individual database connection parameters');
     return new Sequelize({
       host: process.env.DB_HOST || 'localhost',
-      port: process.env.DB_PORT || 5432,
+      port: parseInt(process.env.DB_PORT || '5432', 10),
       database: process.env.DB_NAME || 'landing_pad_dev',
       username: process.env.DB_USER || 'postgres',
       password: process.env.DB_PASSWORD || 'postgres',
       dialect: 'postgres',
-      logging: process.env.NODE_ENV === 'development' ? (msg) => logger.debug(msg) : false,
-      dialectOptions: {
-        ssl: process.env.NODE_ENV === 'production' ? {
-          require: true,
-          rejectUnauthorized: false
-        } : false
-      },
-      pool: {
-        max: 10,                    // Maximum number of connection in pool
-        min: 2,                     // Minimum number of connection in pool
-        acquire: 30000,             // Maximum time (ms) that pool will try to get connection before throwing error
-        idle: 10000                 // Maximum time (ms) that a connection can be idle before being released
-      },
-      retry: {
-        match: [
-          /SequelizeConnectionError/,
-          /SequelizeConnectionRefusedError/,
-          /SequelizeHostNotFoundError/,
-          /SequelizeHostNotReachableError/,
-          /SequelizeInvalidConnectionError/,
-          /SequelizeConnectionTimedOutError/
-        ],
-        max: 5                     // How many times to retry a failing query
-      }
+      ...commonOptions
     });
   }
 };
 
+// Create the connection
 const sequelize = createSequelizeConnection();
 
-// Test the connection
+/**
+ * Test the database connection
+ * @returns {Promise<boolean>} Whether the connection was successful
+ */
 const testConnection = async () => {
   try {
     await sequelize.authenticate();
@@ -82,8 +77,13 @@ const testConnection = async () => {
   }
 };
 
-// Initialize database with automatic migration
-const initializeDatabase = async (forceSync = false) => {
+/**
+ * Initialize database with automatic migration
+ * @param {boolean} forceSync Whether to force sync (drop tables and recreate)
+ * @param {boolean} alterTables Whether to alter tables to match models
+ * @returns {Promise<boolean>} Whether initialization was successful
+ */
+const initializeDatabase = async (forceSync = false, alterTables = false) => {
   try {
     // Test connection first
     const isConnected = await testConnection();
@@ -92,12 +92,23 @@ const initializeDatabase = async (forceSync = false) => {
     }
     
     // Determine if we should sync (create tables)
-    if (process.env.NODE_ENV !== 'production' || forceSync) {
-      logger.info(`Synchronizing database schema (force=${forceSync})...`);
-      await sequelize.sync({ force: forceSync });
-      logger.info('Database schema synchronized successfully.');
-    } else {
+    if (process.env.NODE_ENV === 'production' && !forceSync && !alterTables) {
       logger.info('Skipping automatic schema sync in production. Run migrations manually.');
+      return true;
+    }
+    
+    if (forceSync) {
+      logger.warn('Synchronizing database with FORCE=TRUE. All data will be lost!');
+      await sequelize.sync({ force: true });
+      logger.info('Database schema reset and synchronized successfully.');
+    } else if (alterTables) {
+      logger.info('Synchronizing database with ALTER=TRUE. Tables will be modified to match models.');
+      await sequelize.sync({ alter: true });
+      logger.info('Database schema altered successfully.');
+    } else {
+      logger.info('Synchronizing database (safe mode).');
+      await sequelize.sync();
+      logger.info('Database schema synchronized successfully.');
     }
     
     return true;
@@ -107,8 +118,22 @@ const initializeDatabase = async (forceSync = false) => {
   }
 };
 
+/**
+ * Close the database connection
+ * @returns {Promise<void>}
+ */
+const closeConnection = async () => {
+  try {
+    await sequelize.close();
+    logger.info('Database connection closed successfully.');
+  } catch (error) {
+    logger.error('Error closing database connection:', error);
+  }
+};
+
 module.exports = { 
   sequelize,
   testConnection,
-  initializeDatabase
+  initializeDatabase,
+  closeConnection
 };
