@@ -10,16 +10,8 @@ export function Header() {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const pathname = usePathname();
   
-  // Handle possible errors when component mounts before AuthProvider
-  let authContext;
-  try {
-    authContext = useAuth();
-  } catch (e) {
-    console.warn('Auth context not available in Header:', e);
-    authContext = { user: null, isLoading: false, logout: () => {}, isAuthenticated: false };
-  }
-  
-  const { user, isLoading, logout } = authContext;
+  // Use the hook directly with the fallback provided in the hook itself
+  const { user, isLoading, logout } = useAuth();
 
   const isActive = (path: string) => {
     return pathname === path;
@@ -36,6 +28,7 @@ export function Header() {
                 src="/images/logo.svg" 
                 alt="Landing Pad Digital" 
                 fill 
+                priority
                 className="object-contain"
               />
             </div>

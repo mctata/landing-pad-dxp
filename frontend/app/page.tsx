@@ -1,3 +1,5 @@
+'use client';
+
 import Image from 'next/image';
 import Link from 'next/link';
 import { Header } from '@/components/layout/Header';
@@ -33,6 +35,7 @@ export default function Home() {
                 src="/images/hero-image.png" 
                 alt="AI Website Builder" 
                 fill
+                priority
                 className="object-contain"
               />
             </div>

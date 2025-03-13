@@ -3,28 +3,44 @@
  * Provides logging, error tracking, and performance monitoring
  */
 import * as Sentry from '@sentry/nextjs';
-import { createLogger, format, transports } from 'winston';
 import { ReportHandler } from 'web-vitals';
 
-// Winston logger configuration
-export const logger = createLogger({
-  level: process.env.NODE_ENV === 'production' ? 'info' : 'debug',
-  format: format.combine(
-    format.timestamp(),
-    format.json()
-  ),
-  defaultMeta: { service: 'landing-pad-frontend' },
-  transports: [
-    new transports.Console({
+// Winston imports dynamically to avoid 'fs' issues in browser
+let logger: any = {
+  info: (...args: any[]) => console.info(...args),
+  error: (...args: any[]) => console.error(...args),
+  warn: (...args: any[]) => console.warn(...args),
+  debug: (...args: any[]) => console.debug(...args),
+};
+
+// Initialize Winston logger only on server side
+if (typeof window === 'undefined') {
+  import('winston').then(({ createLogger, format, transports }) => {
+    logger = createLogger({
+      level: process.env.NODE_ENV === 'production' ? 'info' : 'debug',
       format: format.combine(
-        format.colorize(),
-        format.printf(({ timestamp, level, message, ...meta }) => {
-          return `[${timestamp}] ${level}: ${message} ${Object.keys(meta).length ? JSON.stringify(meta) : ''}`;
-        })
+        format.timestamp(),
+        format.json()
       ),
-    }),
-  ],
-});
+      defaultMeta: { service: 'landing-pad-frontend' },
+      transports: [
+        new transports.Console({
+          format: format.combine(
+            format.colorize(),
+            format.printf(({ timestamp, level, message, ...meta }: any) => {
+              return `[${timestamp}] ${level}: ${message} ${Object.keys(meta).length ? JSON.stringify(meta) : ''}`;
+            })
+          ),
+        }),
+      ],
+    });
+  }).catch(e => {
+    console.error('Failed to initialize Winston logger:', e);
+  });
+}
+
+// Export the configured logger
+export { logger };
 
 // Initialize Sentry if SENTRY_DSN is provided
 if (typeof window !== 'undefined' && process.env.NEXT_PUBLIC_SENTRY_DSN) {
@@ -170,13 +186,10 @@ export function trackApiTiming(url: string, method: string, duration: number, st
 
   // Report to Sentry as span if available
   if (typeof window !== 'undefined' && process.env.NEXT_PUBLIC_SENTRY_DSN) {
-    const transaction = Sentry.startTransaction({ 
-      name: `${method} ${url}`,
-      op: 'http.client'
+    // Just use captureMessage instead of startTransaction which isn't available
+    Sentry.captureMessage(`API Request: ${method} ${url}`, {
+      level: 'info',
+      tags: { status, duration }
     });
-    
-    transaction.setData('status', status);
-    transaction.setData('duration', duration);
-    transaction.finish();
   }
 }
