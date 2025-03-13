@@ -59,13 +59,13 @@ interface ContactElementProps {
   onUpdateField?: (fieldId: string, updates: Partial<ContactField>) => void;
 }
 
-export function ContactElement({ 
+const ContactElement = ({ 
   content, 
   settings, 
   isEditing = false, 
   onUpdate,
   onUpdateField
-}: ContactElementProps) {
+}: ContactElementProps) => {
   const [editingField, setEditingField] = useState<string | null>(null);
   const [editingFieldId, setEditingFieldId] = useState<string | null>(null);
   
@@ -551,4 +551,6 @@ export function ContactElement({
       </div>
     </div>
   );
-}
+};
+
+export { ContactElement };
