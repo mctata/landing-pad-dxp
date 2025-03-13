@@ -1,7 +1,7 @@
 # Netlify configuration file
 
 [build]
-  command = "npm run build"
+  command = "npm run netlify:build"
   publish = ".next"
   
 # Include Next.js specific build settings
