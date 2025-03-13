@@ -15,23 +15,13 @@ const nextConfig = {
     // OpenAI API key for content generation
     OPENAI_API_KEY: process.env.OPENAI_API_KEY,
   },
-  // Optimize build and CSS loading
+  // Simple webpack config
   webpack(config) {
-    // Add any custom webpack config here
     return config;
   },
-  // Optimize page loading
-  compiler: {
-    // Enable tree-shaking and optimizations
-    removeConsole: process.env.NODE_ENV === 'production',
-  },
-  // Optimize static assets
-  optimizeFonts: true,
-  // Enable App directory (no longer experimental in latest Next.js)
+  // Enable App directory
   experimental: {
     appDir: true,
-    // Preload critical assets
-    preloadedFonts: true,
   },
 };
 

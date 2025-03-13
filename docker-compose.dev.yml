@@ -11,9 +11,17 @@ services:
     environment:
       - NODE_ENV=development
       - PORT=3000
-      - DATABASE_URL=${DATABASE_URL}
-      - JWT_SECRET=${JWT_SECRET}
-      - API_KEY=${API_KEY}
+      - DB_HOST=postgres
+      - DB_PORT=5432
+      - DB_NAME=landing_pad_dxp
+      - DB_USER=postgres
+      - DB_PASSWORD=postgres
+      - DB_SSL=false
+      - JWT_SECRET=${JWT_SECRET:-2dde3acea2ec665b57798c154e20613d9cf14bec124189f1bf6c70a103c22bf046c5a5a65c35a55ae749300b2b7205de531b2f523caf8345fc07b1c40b3b6524}
+      - API_KEY=${API_KEY:-api_key}
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - REDIS_PASSWORD=${REDIS_PASSWORD:-dev_password}
     restart: unless-stopped
     networks:
       - landing-pad-network
@@ -21,6 +29,9 @@ services:
       - ./backend:/usr/src/app
       - /usr/src/app/node_modules
     command: npm run dev
+    depends_on:
+      - redis
+      - postgres
 
   frontend:
     build:
@@ -32,16 +43,52 @@ services:
     environment:
       - NODE_ENV=development
       - PORT=3000
-      - NEXT_PUBLIC_API_URL=http://localhost:3001
+      - NEXT_PUBLIC_API_URL=http://backend:3000
+      - NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY=pk_test_51R214HApl48RYCtnSLSd1SPLUN6pkpCn8i3s3GEp39AA1wTntINx9wjQDRBlUNsOOQCJYCyKRtHcB8e1hCu9FeJK00ZzaqCnNf
+      - NEXT_PUBLIC_STORAGE_URL=http://backend:3000/storage
+      - NEXTAUTH_SECRET=supersecret
+      - NEXTAUTH_URL=http://localhost:3000
     restart: unless-stopped
     networks:
       - landing-pad-network
     volumes:
       - ./frontend:/app
+      - ./frontend/node_modules/critters:/app/node_modules/critters
       - /app/node_modules
       - /app/.next
     command: npm run dev
+    
+  redis:
+    image: redis:alpine
+    container_name: landing-pad-redis-dev
+    command: redis-server --requirepass ${REDIS_PASSWORD:-dev_password}
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data-dev:/data
+    networks:
+      - landing-pad-network
+    restart: unless-stopped
+
+  postgres:
+    image: postgres:15-alpine
+    container_name: landing-pad-postgres-dev
+    ports:
+      - "5432:5432"
+    environment:
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+      - POSTGRES_DB=landing_pad_dxp
+    volumes:
+      - postgres-data-dev:/var/lib/postgresql/data
+    networks:
+      - landing-pad-network
+    restart: unless-stopped
 
 networks:
   landing-pad-network:
     driver: bridge
+    
+volumes:
+  redis-data-dev:
+  postgres-data-dev:

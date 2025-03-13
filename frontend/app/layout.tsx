@@ -26,20 +26,6 @@ export default function RootLayout({
       <head>
         <meta name="viewport" content="width=device-width, initial-scale=1.0" />
         <meta name="theme-color" content="#ffffff" />
-        
-        {/* Add critical CSS to prevent FOUC */}
-        <style dangerouslySetInnerHTML={{ __html: `
-          /* Hide body until CSS is loaded */
-          body {
-            display: none;
-          }
-          /* Make body visible once CSS is ready */
-          .js-loading-complete body {
-            display: block;
-          }
-        `}} />
-        
-        {/* Don't preload specific fonts since we're using Google Fonts */}
       </head>
       <body className={inter.className}>
         {/* Skip to content link for keyboard users */}
@@ -47,16 +33,10 @@ export default function RootLayout({
           Skip to content
         </a>
         <Providers>
-          <main id="main-content" className="content-loaded">
+          <main id="main-content">
             {children}
           </main>
         </Providers>
-        
-        {/* Script to show content when CSS is loaded */}
-        <script dangerouslySetInnerHTML={{ __html: `
-          // Add class to html element once CSS is loaded
-          document.documentElement.classList.add('js-loading-complete');
-        `}} />
       </body>
     </html>
   )

@@ -3,29 +3,13 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Add base styles that should be loaded without delay */
+/* Simple base styles */
 html {
   scroll-behavior: smooth;
-  font-display: swap;
 }
 
-/* Add a class to handle content loading */
-.content-loading {
-  display: none;
-}
-
-.content-loaded {
-  animation: fadeIn 0.3s ease-in forwards;
-}
-
-@keyframes fadeIn {
-  from { opacity: 0; }
-  to { opacity: 1; }
-}
-
-/* Add preloaded styles to prevent FOUC */
 body {
-  display: block;
+  min-height: 100vh;
 }
 
 :root {
