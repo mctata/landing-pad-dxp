@@ -8,8 +8,7 @@
     "start": "next start",
     "lint": "next lint",
     "test": "jest",
-    "export": "next build && next export",
-    "netlify:build": "next build",
+    "netlify:build": "next build && cp -r public .next/standalone/ && cp -r .next/static .next/standalone/.next/",
     "netlify:dev": "netlify dev"
   },
   "dependencies": {

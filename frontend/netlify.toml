@@ -1,28 +1,57 @@
-# Netlify configuration file
+# Netlify configuration file for Next.js project
 
 [build]
   command = "npm run netlify:build"
-  publish = ".next"
+  publish = ".next/standalone"
   
 # Include Next.js specific build settings
 [build.environment]
-  NETLIFY_NEXT_PLUGIN_SKIP = "true"
+  # Use the Netlify Next.js plugin
+  NETLIFY_NEXT_PLUGIN_SKIP = "false"
+  # Set Node.js version to 18 for Next.js 14 compatibility
   NODE_VERSION = "18"
   NPM_VERSION = "9"
+  # Disable Next.js telemetry
+  NEXT_TELEMETRY_DISABLED = "1"
+  # Improve cache handling
+  NETLIFY_USE_YARN_CACHE = "true"
+  # Set production mode
+  NODE_ENV = "production"
+
+# Cache Next.js build outputs
+[[plugins]]
+  package = "@netlify/plugin-nextjs"
+  
+# Configure cache for faster builds
+[build.processing]
+  skip_processing = false
+[build.processing.css]
+  bundle = true
+  minify = true
+[build.processing.js]
+  bundle = true
+  minify = true
+[build.processing.images]
+  compress = true
 
 # Configure routing for SPA and dynamic routes
+[[redirects]]
+  from = "/_next/static/*"
+  to = "/static/:splat"
+  status = 200
+
+[[redirects]]
+  from = "/api/*"
+  to = "https://api.landingpad-digital.com/:splat"
+  status = 200
+  force = true
+
 [[redirects]]
   from = "/*"
   to = "/index.html"
   status = 200
   force = false
   conditions = {Role = ["admin", "user"]}
-  
-[[redirects]]
-  from = "/api/*"
-  to = "https://api.landingpad-digital.com/:splat"
-  status = 200
-  force = true
 
 # Configure headers for security
 [[headers]]
@@ -32,8 +61,10 @@
     X-XSS-Protection = "1; mode=block"
     X-Content-Type-Options = "nosniff"
     Referrer-Policy = "strict-origin-when-cross-origin"
-    
+    Content-Security-Policy = "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: images.unsplash.com; font-src 'self'; connect-src 'self' api.landingpad-digital.com;"
+
 # Function configuration (if using Netlify Functions)
 [functions]
   directory = "netlify/functions"
   node_bundler = "esbuild"
+  included_files = ["public/**"]
