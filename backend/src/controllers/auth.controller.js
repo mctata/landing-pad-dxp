@@ -342,7 +342,10 @@ exports.resetPassword = async (req, res, next) => {
     const user = await User.findOne({ 
       where: { 
         resetPasswordToken: token,
-        resetPasswordExpires: { $gt: new Date() }
+        resetPasswordExpires: { 
+          // Use Sequelize's operator for greater than instead of MongoDB's $gt
+          [require('sequelize').Op.gt]: new Date() 
+        }
       } 
     });
     
@@ -359,6 +362,190 @@ exports.resetPassword = async (req, res, next) => {
     res.json({ message: 'Password has been reset successfully. You can now log in with your new password.' });
   } catch (error) {
     logger.error('Reset password error:', error);
+    next(error);
+  }
+};
+
+// Handle social authentication callbacks from providers
+// Social auth - Google
+exports.googleCallback = async (req, res, next) => {
+  try {
+    const { id, emails, displayName, name, photos } = req.user;
+    
+    if (!emails || emails.length === 0) {
+      return res.status(400).json({ message: 'Email address is required' });
+    }
+    
+    const email = emails[0].value;
+    let user = await User.findOne({ where: { email } });
+    
+    if (!user) {
+      // Create a new user with Google info
+      user = await User.create({
+        firstName: name?.givenName || displayName.split(' ')[0] || 'Google',
+        lastName: name?.familyName || displayName.split(' ').slice(1).join(' ') || 'User',
+        email,
+        // Generate a secure random password that the user won't need to know
+        password: require('crypto').randomBytes(16).toString('hex'),
+        googleId: id,
+        profilePicture: photos && photos.length > 0 ? photos[0].value : null,
+        emailVerified: true, // Google already verified the email
+        status: 'active',
+        subscriptionTier: 'free'
+      });
+    } else {
+      // Update existing user with latest Google info
+      user.googleId = id;
+      if (photos && photos.length > 0) {
+        user.profilePicture = photos[0].value;
+      }
+      user.emailVerified = true;
+      user.status = 'active';
+      await user.save();
+    }
+    
+    // Generate tokens
+    const accessToken = generateAccessToken(user);
+    const refreshToken = generateRefreshToken(user);
+    
+    // Save refresh token
+    user.refreshToken = refreshToken;
+    await user.save();
+    
+    // Set refresh token cookie
+    res.cookie('refreshToken', refreshToken, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      maxAge: 7 * 24 * 60 * 60 * 1000 // 7 days
+    });
+    
+    // Redirect to frontend with tokens
+    const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
+    res.redirect(`${frontendUrl}/auth/social-callback?token=${accessToken}&userId=${user.id}`);
+  } catch (error) {
+    logger.error('Google auth callback error:', error);
+    next(error);
+  }
+};
+
+// Social auth - Facebook
+exports.facebookCallback = async (req, res, next) => {
+  try {
+    const { id, emails, displayName, name, photos } = req.user;
+    
+    if (!emails || emails.length === 0) {
+      return res.status(400).json({ message: 'Email address is required' });
+    }
+    
+    const email = emails[0].value;
+    let user = await User.findOne({ where: { email } });
+    
+    if (!user) {
+      // Create a new user with Facebook info
+      user = await User.create({
+        firstName: name?.givenName || displayName.split(' ')[0] || 'Facebook',
+        lastName: name?.familyName || displayName.split(' ').slice(1).join(' ') || 'User',
+        email,
+        // Generate a secure random password that the user won't need to know
+        password: require('crypto').randomBytes(16).toString('hex'),
+        facebookId: id,
+        profilePicture: photos && photos.length > 0 ? photos[0].value : null,
+        emailVerified: true, // Facebook already verified the email
+        status: 'active',
+        subscriptionTier: 'free'
+      });
+    } else {
+      // Update existing user with latest Facebook info
+      user.facebookId = id;
+      if (photos && photos.length > 0) {
+        user.profilePicture = photos[0].value;
+      }
+      user.emailVerified = true;
+      user.status = 'active';
+      await user.save();
+    }
+    
+    // Generate tokens
+    const accessToken = generateAccessToken(user);
+    const refreshToken = generateRefreshToken(user);
+    
+    // Save refresh token
+    user.refreshToken = refreshToken;
+    await user.save();
+    
+    // Set refresh token cookie
+    res.cookie('refreshToken', refreshToken, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      maxAge: 7 * 24 * 60 * 60 * 1000 // 7 days
+    });
+    
+    // Redirect to frontend with tokens
+    const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
+    res.redirect(`${frontendUrl}/auth/social-callback?token=${accessToken}&userId=${user.id}`);
+  } catch (error) {
+    logger.error('Facebook auth callback error:', error);
+    next(error);
+  }
+};
+
+// Social auth - LinkedIn
+exports.linkedinCallback = async (req, res, next) => {
+  try {
+    const { id, emails, displayName, name, photos } = req.user;
+    
+    if (!emails || emails.length === 0) {
+      return res.status(400).json({ message: 'Email address is required' });
+    }
+    
+    const email = emails[0].value;
+    let user = await User.findOne({ where: { email } });
+    
+    if (!user) {
+      // Create a new user with LinkedIn info
+      user = await User.create({
+        firstName: name?.givenName || displayName.split(' ')[0] || 'LinkedIn',
+        lastName: name?.familyName || displayName.split(' ').slice(1).join(' ') || 'User',
+        email,
+        // Generate a secure random password that the user won't need to know
+        password: require('crypto').randomBytes(16).toString('hex'),
+        linkedinId: id,
+        profilePicture: photos && photos.length > 0 ? photos[0].value : null,
+        emailVerified: true, // LinkedIn already verified the email
+        status: 'active',
+        subscriptionTier: 'free'
+      });
+    } else {
+      // Update existing user with latest LinkedIn info
+      user.linkedinId = id;
+      if (photos && photos.length > 0) {
+        user.profilePicture = photos[0].value;
+      }
+      user.emailVerified = true;
+      user.status = 'active';
+      await user.save();
+    }
+    
+    // Generate tokens
+    const accessToken = generateAccessToken(user);
+    const refreshToken = generateRefreshToken(user);
+    
+    // Save refresh token
+    user.refreshToken = refreshToken;
+    await user.save();
+    
+    // Set refresh token cookie
+    res.cookie('refreshToken', refreshToken, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      maxAge: 7 * 24 * 60 * 60 * 1000 // 7 days
+    });
+    
+    // Redirect to frontend with tokens
+    const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
+    res.redirect(`${frontendUrl}/auth/social-callback?token=${accessToken}&userId=${user.id}`);
+  } catch (error) {
+    logger.error('LinkedIn auth callback error:', error);
     next(error);
   }
 };

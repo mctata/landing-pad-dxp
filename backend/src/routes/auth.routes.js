@@ -1,8 +1,12 @@
 const express = require('express');
 const { body, param } = require('express-validator');
+const passport = require('passport');
 const authController = require('../controllers/auth.controller');
 const { authenticate } = require('../middleware/auth');
 const { validate } = require('../middleware/error');
+
+// Initialize passport for social auth
+require('../config/passport');
 
 const router = express.Router();
 
@@ -108,6 +112,46 @@ router.post(
     validate,
   ],
   authController.resetPassword
+);
+
+// Social authentication routes
+// Google Auth
+router.get('/google', passport.authenticate('google', { 
+  scope: ['profile', 'email']
+}));
+
+router.get('/google/callback', 
+  passport.authenticate('google', { 
+    failureRedirect: '/auth/login',
+    session: false 
+  }),
+  authController.googleCallback
+);
+
+// Facebook Auth
+router.get('/facebook', passport.authenticate('facebook', { 
+  scope: ['email', 'public_profile'] 
+}));
+
+router.get('/facebook/callback',
+  passport.authenticate('facebook', { 
+    failureRedirect: '/auth/login',
+    session: false 
+  }),
+  authController.facebookCallback
+);
+
+// LinkedIn Auth
+router.get('/linkedin', passport.authenticate('linkedin', { 
+  scope: ['r_emailaddress', 'r_liteprofile']
+}));
+
+router.get('/linkedin/callback',
+  passport.authenticate('linkedin', { 
+    failureRedirect: '/auth/login',
+    session: false 
+  }),
+  authController.linkedinCallback
 );
 
 module.exports = router;

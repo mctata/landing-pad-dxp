@@ -61,6 +61,24 @@ const User = sequelize.define('User', {
     type: DataTypes.DATE,
     allowNull: true,
   },
+  profilePicture: {
+    type: DataTypes.STRING,
+    allowNull: true,
+  },
+  // Social login fields
+  googleId: {
+    type: DataTypes.STRING,
+    allowNull: true,
+  },
+  facebookId: {
+    type: DataTypes.STRING,
+    allowNull: true,
+  },
+  linkedinId: {
+    type: DataTypes.STRING,
+    allowNull: true,
+  },
+  // Subscription related fields
   stripeCustomerId: {
     type: DataTypes.STRING,
     allowNull: true,
@@ -69,8 +87,14 @@ const User = sequelize.define('User', {
     type: DataTypes.STRING,
     allowNull: true,
   },
+  // Authentication fields
   refreshToken: {
     type: DataTypes.STRING,
+    allowNull: true,
+  },
+  // For token expiry tracking 
+  tokenExpiresAt: {
+    type: DataTypes.DATE,
     allowNull: true,
   },
 }, {

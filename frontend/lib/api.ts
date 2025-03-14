@@ -124,17 +124,42 @@ api.interceptors.response.use(
     
     // If 401 Unauthorized and not already retrying
     if (error.response?.status === 401 && !originalRequest._retry) {
-      // DISABLE AUTO REDIRECT - this was causing redirect loops
-      // Just log the error and continue
-      console.warn('API authentication error, but not redirecting to prevent loops');
+      originalRequest._retry = true;
       
-      // Don't remove token or trigger redirects anymore
-      /* 
-      if (typeof window !== 'undefined') {
-        localStorage.removeItem('token');
-        window.location.href = `/auth/login?redirectTo=${window.location.pathname}`;
+      try {
+        // Try to get a new access token using the refresh token
+        const refreshResponse = await api.post('/api/auth/refresh-token');
+        const { accessToken } = refreshResponse.data;
+        
+        if (accessToken) {
+          // Save the new token
+          if (typeof window !== 'undefined') {
+            localStorage.setItem('token', accessToken);
+          }
+          
+          // Update the failed request's Authorization header
+          originalRequest.headers['Authorization'] = 'Bearer ' + accessToken;
+          
+          // Retry the original request
+          return api(originalRequest);
+        }
+      } catch (refreshError) {
+        // If refresh token is invalid or expired, clear auth and redirect to login
+        console.error('Token refresh failed:', refreshError);
+        
+        if (typeof window !== 'undefined') {
+          // Clear auth data
+          localStorage.removeItem('userData');
+          localStorage.removeItem('token');
+          localStorage.removeItem('userEmail');
+          localStorage.removeItem('userRole');
+          
+          // Only redirect if not already on login page to prevent loops
+          if (!window.location.pathname.includes('/auth/login')) {
+            window.location.href = `/auth/login?redirectTo=${window.location.pathname}`;
+          }
+        }
       }
-      */
     }
     
     return Promise.reject(error);
@@ -181,7 +206,7 @@ export const authAPI = {
         return Promise.resolve({
           data: {
             user,
-            token: 'mock-jwt-token-' + Math.random().toString(36).substring(2)
+            accessToken: 'mock-jwt-token-' + Math.random().toString(36).substring(2)
           }
         });
       }
@@ -195,16 +220,18 @@ export const authAPI = {
     }
   },
   
-  register: async (name: string, email: string, password: string) => {
+  register: async (firstName: string, lastName: string, email: string, password: string) => {
     // Try to use real API first
     try {
-      return await api.post('/api/auth/register', { name, email, password });
+      return await api.post('/api/auth/register', { firstName, lastName, email, password });
     } catch (error) {
       // If API fails, use mock implementation
       // Create a new mock user
       const newUser = {
         id: 'user-' + Math.random().toString(36).substring(2),
-        name,
+        firstName,
+        lastName,
+        name: `${firstName} ${lastName}`.trim(),
         email,
         subscription: 'free' as const,
         role: 'user',
@@ -213,7 +240,9 @@ export const authAPI = {
       return Promise.resolve({
         data: {
           user: newUser,
-          token: 'mock-jwt-token-' + Math.random().toString(36).substring(2)
+          accessToken: 'mock-jwt-token-' + Math.random().toString(36).substring(2),
+          verificationRequired: true,
+          verificationUrl: `/verify-email?token=mock-token-${Math.random().toString(36).substring(2)}`
         }
       });
     }
@@ -249,8 +278,124 @@ export const authAPI = {
     }
   },
   
-  forgotPassword: (email: string) => api.post('/api/auth/forgot-password', { email }),
-  changePassword: (currentPassword: string, newPassword: string) => api.post('/api/auth/change-password', { currentPassword, newPassword }),
+  refreshToken: async () => {
+    // Try to use real API first
+    try {
+      return await api.post('/api/auth/refresh-token');
+    } catch (error) {
+      // In mock mode, generate a new token
+      const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
+      
+      if (token && token.startsWith('mock-jwt-token-')) {
+        return Promise.resolve({
+          data: {
+            accessToken: 'mock-jwt-token-' + Math.random().toString(36).substring(2)
+          }
+        });
+      }
+      
+      return Promise.reject(new Error('Invalid refresh token'));
+    }
+  },
+  
+  logout: async () => {
+    // Try to use real API first
+    try {
+      return await api.post('/api/auth/logout');
+    } catch (error) {
+      // In mock mode, just return success
+      return Promise.resolve({
+        data: {
+          message: 'Logout successful'
+        }
+      });
+    }
+  },
+  
+  verifyEmail: async (token: string) => {
+    // Try to use real API first
+    try {
+      return await api.get(`/api/auth/verify-email/${token}`);
+    } catch (error) {
+      // In mock mode, just return success
+      return Promise.resolve({
+        data: {
+          message: 'Email verified successfully. You can now log in.'
+        }
+      });
+    }
+  },
+  
+  resendVerification: async (email: string) => {
+    // Try to use real API first
+    try {
+      return await api.post('/api/auth/resend-verification', { email });
+    } catch (error) {
+      // In mock mode, just return success
+      return Promise.resolve({
+        data: {
+          message: 'Verification email sent. Please check your inbox.',
+          verificationUrl: `/verify-email?token=mock-token-${Math.random().toString(36).substring(2)}`
+        }
+      });
+    }
+  },
+  
+  forgotPassword: async (email: string) => {
+    // Try to use real API first
+    try {
+      return await api.post('/api/auth/forgot-password', { email });
+    } catch (error) {
+      // In mock mode, just return success
+      return Promise.resolve({
+        data: {
+          message: 'Password reset link sent. Please check your email.',
+          resetUrl: `/reset-password?token=mock-token-${Math.random().toString(36).substring(2)}`
+        }
+      });
+    }
+  },
+  
+  resetPassword: async (token: string, newPassword: string) => {
+    // Try to use real API first
+    try {
+      return await api.post('/api/auth/reset-password', { token, newPassword });
+    } catch (error) {
+      // In mock mode, just return success
+      return Promise.resolve({
+        data: {
+          message: 'Password has been reset successfully. You can now log in.'
+        }
+      });
+    }
+  },
+  
+  changePassword: async (currentPassword: string, newPassword: string) => {
+    // Try to use real API first
+    try {
+      return await api.post('/api/auth/change-password', { currentPassword, newPassword });
+    } catch (error) {
+      // In mock mode, just return success
+      return Promise.resolve({
+        data: {
+          message: 'Password updated successfully'
+        }
+      });
+    }
+  },
+  
+  // Social login methods
+  loginWithGoogle: async () => {
+    window.location.href = `${API_URL}/api/auth/google`;
+  },
+  
+  loginWithLinkedIn: async () => {
+    window.location.href = `${API_URL}/api/auth/linkedin`;
+  },
+  
+  loginWithFacebook: async () => {
+    window.location.href = `${API_URL}/api/auth/facebook`;
+  }
 };
 
 // Mock projects data

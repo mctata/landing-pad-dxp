@@ -70,9 +70,6 @@ export async function middleware(request: NextRequest) {
     
     // Check if it's an admin route
     if (path.startsWith('/admin')) {
-      // DEVELOPMENT MODE: Skip admin auth checks to prevent redirect loops
-      // In production, you would enable this code
-      
       // Parse URL to check for query parameters
       const url = new URL(request.url);
       
@@ -84,13 +81,26 @@ export async function middleware(request: NextRequest) {
         return NextResponse.next();
       }
       
-      // Check for our custom auth mechanism first
-      const userRole = request.cookies.get('userRole')?.value || '';
-      const userData = request.cookies.get('userData')?.value || '';
+      // Check auth token and role
+      const token = request.cookies.get('token')?.value;
       
+      if (!token) {
+        // If no token in cookies, try to check headers - the JS token might be added by the API interceptor
+        const authHeader = request.headers.get('Authorization');
+        if (!authHeader || !authHeader.startsWith('Bearer ')) {
+          // Track unauthorized attempts
+          incrementMetric(metrics.statusCounts, 'redirect-auth');
+          
+          // Include the current path as redirectTo parameter
+          return NextResponse.redirect(new URL(`/auth/login?redirectTo=${path}`, request.url));
+        }
+      }
+      
+      // Check role from cookies or JWT
       let isAdmin = false;
       
-      // First try with userData JSON
+      // Check user data from cookies
+      const userData = request.cookies.get('userData')?.value || '';
       if (userData) {
         try {
           const user = JSON.parse(userData);
@@ -100,54 +110,52 @@ export async function middleware(request: NextRequest) {
         }
       }
       
-      // Fallback to legacy userRole
-      if (!isAdmin && userRole) {
-        isAdmin = userRole === 'admin';
+      // If we can't determine role from cookies, let client-side handle it
+      // This is a limitation of middleware - we can't fully decode JWTs securely here
+      
+      // For now, only check if we found userData confirming the user isn't admin
+      if (userData && !isAdmin) {
+        // If we know the user is not an admin, redirect to dashboard
+        return NextResponse.redirect(new URL('/dashboard', request.url));
       }
       
-      // If not an admin, try localStorage check on client-side
-      if (!isAdmin) {
-        // Get local storage data from client side - we'll check in a client component
-        // For now, continue and let client-side handle redirect if needed
-      }
-      
-      // FOR DEV MODE: Return next regardless
+      // Otherwise pass through and let client-side handle deeper role validations
       return NextResponse.next();
     }
     
     // Check for authenticated routes
     if (path.startsWith('/dashboard') || path.startsWith('/projects')) {
-      // DEVELOPMENT MODE: Skip all auth checks to prevent redirect loops
-      // In production, you would enable this code
-      
-      // FOR DEV MODE: Always allow access to dashboard routes
-      return NextResponse.next();
-      
-      /* 
       // Parse URL to check for query parameters
       const url = new URL(request.url);
       
       // Skip auth check if explicitly told not to redirect or coming from login
       const noRedirect = url.searchParams.get('noRedirect') === '1';
       const isComingFromLogin = url.searchParams.get('fromLogin') === 'true';
+      const isComingFromRegister = url.searchParams.get('fromRegister') === 'true';
       
-      if (noRedirect || isComingFromLogin) {
+      if (noRedirect || isComingFromLogin || isComingFromRegister) {
         return NextResponse.next();
       }
       
-      // Get the session token - check for both next-auth and our custom token
-      const nextAuthToken = request.cookies.get('next-auth.session-token')?.value || '';
-      const hasToken = nextAuthToken || request.cookies.get('token')?.value;
+      // Check for token in cookies
+      const token = request.cookies.get('token')?.value;
       
-      // If no token, redirect to login
-      if (!hasToken) {
-        // Track unauthorized attempts
-        incrementMetric(metrics.statusCounts, 'redirect-auth');
+      // If no token in cookies, check Authorization header (for API requests)
+      if (!token) {
+        const authHeader = request.headers.get('Authorization');
         
-        // Include the current path as redirectTo parameter
-        return NextResponse.redirect(new URL(`/auth/login?redirectTo=${path}`, request.url));
+        // If no token found at all, redirect to login
+        if (!authHeader || !authHeader.startsWith('Bearer ')) {
+          // Track unauthorized attempts
+          incrementMetric(metrics.statusCounts, 'redirect-auth');
+          
+          // Include the current path as redirectTo parameter
+          return NextResponse.redirect(new URL(`/auth/login?redirectTo=${path}`, request.url));
+        }
       }
-      */
+      
+      // If we got here, there is some form of authentication, let the client validate it further
+      return NextResponse.next();
     }
     
     // Track success

@@ -16,6 +16,7 @@ const morgan = require('morgan');
 const cookieParser = require('cookie-parser');
 const compression = require('compression');
 const rateLimit = require('express-rate-limit');
+const passport = require('passport');
 
 // Import middleware and utilities
 const { errorHandler } = require('./middleware/errorHandler');
@@ -121,6 +122,9 @@ app.use(express.urlencoded({ extended: true, limit: '1mb' }));
 
 // Parse cookies (for refresh token)
 app.use(cookieParser());
+
+// Initialize Passport
+app.use(passport.initialize());
 
 // Serve files from the uploads directory if not using S3
 const path = require('path');

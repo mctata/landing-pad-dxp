@@ -4,6 +4,7 @@ import React, { createContext, useContext, useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { toast } from 'react-hot-toast';
 import { authAPI } from '../api';
+import { jwtDecode } from 'jwt-decode';
 
 interface User {
   id: string;
@@ -11,6 +12,15 @@ interface User {
   email: string;
   subscription: 'free' | 'pro' | 'enterprise';
   role: string;
+  firstName?: string;
+  lastName?: string;
+}
+
+interface JwtPayload {
+  id: string;
+  email: string;
+  role: string;
+  exp: number;
 }
 
 interface AuthContextType {
@@ -19,7 +29,11 @@ interface AuthContextType {
   login: (email: string, password: string) => Promise<void>;
   signup: (name: string, email: string, password: string) => Promise<void>;
   logout: () => Promise<void>;
+  refreshAccessToken: () => Promise<string | null>;
   isAuthenticated: boolean;
+  verifyEmail: (token: string) => Promise<void>;
+  forgotPassword: (email: string) => Promise<void>;
+  resetPassword: (token: string, newPassword: string) => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -29,11 +43,82 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [isLoading, setIsLoading] = useState(true);
   const router = useRouter();
 
+  // Check if token is about to expire
+  const isTokenExpired = (token: string): boolean => {
+    try {
+      const decoded = jwtDecode<JwtPayload>(token);
+      // Check if the token will expire in the next 5 minutes
+      return decoded.exp < (Date.now() / 1000) + 300;
+    } catch (error) {
+      return true;
+    }
+  };
+
+  // Get token from storage
+  const getStoredToken = (): string | null => {
+    return localStorage.getItem('token');
+  };
+
+  // Save token to storage
+  const saveToken = (token: string) => {
+    localStorage.setItem('token', token);
+  };
+
+  // Save user data to storage
+  const saveUserData = (userData: User) => {
+    localStorage.setItem('userData', JSON.stringify(userData));
+  };
+
+  // Clear all auth data from storage
+  const clearAuthData = () => {
+    localStorage.removeItem('userData');
+    localStorage.removeItem('token');
+    localStorage.removeItem('userEmail');
+    localStorage.removeItem('userRole');
+    document.cookie = 'refreshToken=; Max-Age=0; path=/; domain=' + window.location.hostname;
+  };
+
+  // Refresh the access token
+  const refreshAccessToken = async (): Promise<string | null> => {
+    try {
+      const response = await authAPI.refreshToken();
+      const newToken = response.data.accessToken;
+      if (newToken) {
+        saveToken(newToken);
+        return newToken;
+      }
+      return null;
+    } catch (error) {
+      console.error('Failed to refresh token:', error);
+      clearAuthData();
+      setUser(null);
+      return null;
+    }
+  };
+
   // Check if user is already logged in
   useEffect(() => {
     const checkAuth = async () => {
       try {
-        // Try to get stored user data first (most reliable)
+        // Try to get stored token first
+        const token = getStoredToken();
+        
+        if (!token) {
+          setIsLoading(false);
+          return;
+        }
+        
+        // Check if token is expired or about to expire
+        if (isTokenExpired(token)) {
+          // Try to refresh the token
+          const newToken = await refreshAccessToken();
+          if (!newToken) {
+            setIsLoading(false);
+            return;
+          }
+        }
+        
+        // Try to get stored user data
         const userData = localStorage.getItem('userData');
         
         if (userData) {
@@ -42,6 +127,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             const parsedUser = JSON.parse(userData);
             setUser(parsedUser);
             console.log('Using stored user data from localStorage');
+            
+            // Validate user data by making an API call
+            try {
+              const response = await authAPI.getCurrentUser();
+              // Update user data if needed
+              setUser(response.data.user);
+              saveUserData(response.data.user);
+            } catch (error) {
+              console.warn('Could not validate user with API, using stored data');
+            }
+            
             setIsLoading(false);
             return;
           } catch (e) {
@@ -49,46 +145,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           }
         }
         
-        // Fallback to legacy storage
-        const token = localStorage.getItem('token');
-        const userEmail = localStorage.getItem('userEmail');
-        const userRole = localStorage.getItem('userRole');
-        
-        if (!token || !userEmail) {
-          setIsLoading(false);
-          return;
-        }
-        
+        // If we have a token but no user data, get it from the API
         try {
-          // Try to get user from API as a last resort
           const response = await authAPI.getCurrentUser();
           setUser(response.data.user);
+          saveUserData(response.data.user);
         } catch (error) {
-          // If API fails, create user from local storage
-          if (userEmail && userRole) {
-            // Create a mock user from localStorage data for demo purposes
-            const mockUser = {
-              id: 'mock-user-id',
-              name: userEmail.split('@')[0],
-              email: userEmail,
-              subscription: userRole === 'admin' ? 'enterprise' : 'pro',
-              role: userRole,
-            };
-            
-            // Store it in the new format for next time
-            localStorage.setItem('userData', JSON.stringify(mockUser));
-            
-            setUser(mockUser);
-            console.log('Using mock user from localStorage (legacy format)');
-          }
+          console.error('Failed to get user data from API:', error);
+          clearAuthData();
         }
       } catch (error) {
-        // Clear all tokens if something went wrong
-        localStorage.removeItem('userData');
-        localStorage.removeItem('token');
-        localStorage.removeItem('userEmail');
-        localStorage.removeItem('userRole');
         console.error('Auth check failed completely:', error);
+        clearAuthData();
       } finally {
         setIsLoading(false);
       }
@@ -104,13 +172,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const response = await authAPI.login(email, password);
       
       // For social login, this might be in response.data.accessToken instead
-      const token = response.data.token || response.data.accessToken;
+      const token = response.data.accessToken || response.data.token;
       
       // Save token
-      localStorage.setItem('token', token);
+      saveToken(token);
       
       // Save complete user data in a structured way to reduce API calls
-      localStorage.setItem('userData', JSON.stringify(response.data.user));
+      saveUserData(response.data.user);
       
       // Legacy support - these are still used in some places
       localStorage.setItem('userEmail', response.data.user.email);
@@ -168,13 +236,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       );
       
       // For backend API compatibility
-      const token = response.data.token || response.data.accessToken;
+      const token = response.data.accessToken || response.data.token;
       
       // Save token
-      localStorage.setItem('token', token);
+      saveToken(token);
       
       // Save complete user data in structured format
-      localStorage.setItem('userData', JSON.stringify(response.data.user));
+      saveUserData(response.data.user);
       
       // Legacy support - these are still used in some places
       localStorage.setItem('userEmail', response.data.user.email);
@@ -229,11 +297,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const logout = async () => {
     setIsLoading(true);
     try {
+      // Try to call the logout API to invalidate the token on the server
+      try {
+        await authAPI.logout();
+      } catch (error) {
+        console.warn('Could not reach logout API:', error);
+      }
+      
       // Clear all storage related to authentication
-      localStorage.removeItem('userData');
-      localStorage.removeItem('token');
-      localStorage.removeItem('userEmail');
-      localStorage.removeItem('userRole');
+      clearAuthData();
       
       // Clear user state
       setUser(null);
@@ -248,10 +320,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }, 500);
     } catch (error) {
       // Even if there's an error, make sure we clear everything
-      localStorage.removeItem('userData');
-      localStorage.removeItem('token');
-      localStorage.removeItem('userEmail');
-      localStorage.removeItem('userRole');
+      clearAuthData();
       setUser(null);
       
       // Redirect after a small delay
@@ -263,12 +332,76 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
+  // Verify email
+  const verifyEmail = async (token: string) => {
+    setIsLoading(true);
+    try {
+      const response = await authAPI.verifyEmail(token);
+      toast.success(response.data.message || 'Email verified successfully. You can now log in.');
+      
+      // Redirect to login page
+      setTimeout(() => {
+        window.location.replace('/auth/login');
+      }, 1000);
+      
+      return response.data;
+    } catch (error: any) {
+      const errorMessage = error.response?.data?.message || 'Failed to verify email. Please try again.';
+      toast.error(errorMessage);
+      throw error;
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // Forgot password
+  const forgotPassword = async (email: string) => {
+    setIsLoading(true);
+    try {
+      const response = await authAPI.forgotPassword(email);
+      toast.success(response.data.message || 'Password reset link sent. Please check your email.');
+      return response.data;
+    } catch (error: any) {
+      // Don't expose if the email exists or not
+      toast.success('If your email exists in our system, a password reset link will be sent.');
+      return { success: true };
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // Reset password
+  const resetPassword = async (token: string, newPassword: string) => {
+    setIsLoading(true);
+    try {
+      const response = await authAPI.resetPassword(token, newPassword);
+      toast.success(response.data.message || 'Password has been reset successfully. You can now log in.');
+      
+      // Redirect to login page
+      setTimeout(() => {
+        window.location.replace('/auth/login');
+      }, 1000);
+      
+      return response.data;
+    } catch (error: any) {
+      const errorMessage = error.response?.data?.message || 'Failed to reset password. Please try again.';
+      toast.error(errorMessage);
+      throw error;
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   const value = {
     user,
     isLoading,
     login,
     signup,
     logout,
+    refreshAccessToken,
+    verifyEmail,
+    forgotPassword,
+    resetPassword,
     isAuthenticated: !!user,
   };
 
