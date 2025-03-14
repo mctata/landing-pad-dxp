@@ -22,22 +22,24 @@ const s3 = new AWS.S3(s3Config);
 const useS3Storage = process.env.S3_ENABLED === 'true' || process.env.AWS_S3_ENABLED === 'true';
 
 // Determine which S3 bucket to use based on environment
-function getBucketName() {
+function getBucketName(type = 'storage') {
   const env = process.env.NODE_ENV || 'development';
   
   switch (env) {
     case 'production':
-      return 'landingpad-dxp-prod';
+      return type === 'uploads' ? 'landingpad-dxp-prod/uploads' : 'landingpad-dxp-prod/storage';
     case 'staging':
-      return 'landingpad-dxp-staging';
+      return type === 'uploads' ? 'landingpad-dxp-staging/uploads' : 'landingpad-dxp-staging/storage';
     case 'development':
     default:
-      return 'landingpad-dxp-dev';
+      return type === 'uploads' ? 'landingpad-dxp-dev/uploads' : 'landingpad-dxp-dev/storage';
   }
 }
 
 // Override bucket name if explicitly set in environment
-const bucketName = process.env.S3_BUCKET || process.env.AWS_S3_BUCKET || getBucketName();
+const storageBucket = process.env.S3_STORAGE_BUCKET || getBucketName('storage');
+const uploadsBucket = process.env.S3_UPLOADS_BUCKET || getBucketName('uploads');
+const bucketName = process.env.S3_BUCKET || process.env.AWS_S3_BUCKET || storageBucket;
 
 // Configure local storage directory
 const uploadDir = process.env.UPLOAD_DIR || './uploads';
@@ -55,7 +57,11 @@ if (!fs.existsSync(uploadDir)) {
 const storage = useS3Storage
   ? multerS3({
       s3,
-      bucket: bucketName,
+      bucket: (req, file) => {
+        // Determine which bucket to use based on the upload type
+        const uploadType = req.body.uploadType || 'storage';
+        return uploadType === 'uploads' ? uploadsBucket : storageBucket;
+      },
       acl: 'public-read',
       contentType: multerS3.AUTO_CONTENT_TYPE,
       key: (req, file, cb) => {
@@ -153,8 +159,12 @@ async function uploadFile(file, folder = 'general', userId = 'anonymous') {
     if (useS3Storage) {
       const fileKey = `${folder}/${userId}/${uuidv4()}-${file.originalname.replace(/\s+/g, '-')}`;
       
+      // Determine which bucket to use based on the upload type
+      const uploadType = file.uploadType || folder === 'uploads' ? 'uploads' : 'storage';
+      const targetBucket = uploadType === 'uploads' ? uploadsBucket : storageBucket;
+      
       const params = {
-        Bucket: bucketName,
+        Bucket: targetBucket,
         Key: fileKey,
         Body: file.buffer || fs.createReadStream(file.path),
         ContentType: file.mimetype,
@@ -220,8 +230,12 @@ async function deleteFile(filePath) {
     }
     
     if (useS3Storage) {
+      // Determine which bucket to use based on the file path
+      const isUploadsBucket = filePath.includes('uploads/') || filePath.includes('uploads_');
+      const targetBucket = isUploadsBucket ? uploadsBucket : storageBucket;
+      
       const params = {
-        Bucket: bucketName,
+        Bucket: targetBucket,
         Key: filePath
       };
       
@@ -280,8 +294,12 @@ async function getSignedUrl(filePath, expirySeconds = 3600) {
       }
     }
     
+    // Determine which bucket to use based on the file path
+    const isUploadsBucket = filePath.includes('uploads/') || filePath.includes('uploads_');
+    const targetBucket = isUploadsBucket ? uploadsBucket : storageBucket;
+    
     const params = {
-      Bucket: bucketName,
+      Bucket: targetBucket,
       Key: filePath,
       Expires: expirySeconds
     };
@@ -309,13 +327,22 @@ async function getSignedUrl(filePath, expirySeconds = 3600) {
 async function healthCheck() {
   try {
     if (useS3Storage) {
-      // Check if bucket exists
-      await s3.headBucket({ Bucket: bucketName }).promise();
+      // Check if both buckets exist
+      const storageResult = await s3.headBucket({ Bucket: storageBucket }).promise()
+        .then(() => ({ success: true, bucket: storageBucket }))
+        .catch(err => ({ success: false, bucket: storageBucket, error: err.message }));
+      
+      const uploadsResult = await s3.headBucket({ Bucket: uploadsBucket }).promise()
+        .then(() => ({ success: true, bucket: uploadsBucket }))
+        .catch(err => ({ success: false, bucket: uploadsBucket, error: err.message }));
+      
       return {
-        success: true,
+        success: storageResult.success && uploadsResult.success,
         storage: 'AWS S3',
-        bucket: bucketName,
-        message: 'S3 bucket accessible'
+        buckets: [storageResult, uploadsResult],
+        message: storageResult.success && uploadsResult.success
+          ? 'All S3 buckets accessible'
+          : 'Some S3 buckets are not accessible'
       };
     } else {
       // Check if upload directory exists and is writable
@@ -354,5 +381,9 @@ module.exports = {
   // Export these for other modules to use
   isS3Enabled: useS3Storage,
   s3,
-  bucketName
+  bucketName,
+  storageBucket,
+  uploadsBucket,
+  // Helper function to determine bucket type
+  getBucketForType: (type) => type === 'uploads' ? uploadsBucket : storageBucket
 };
