@@ -13,13 +13,13 @@ const logger = require('../utils/logger');
 
 // Configure AWS S3
 const s3Config = {
-  accessKeyId: process.env.AWS_ACCESS_KEY_ID,
-  secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
-  region: process.env.AWS_REGION || 'us-east-1'
+  accessKeyId: process.env.S3_ACCESS_KEY_ID || process.env.AWS_ACCESS_KEY_ID,
+  secretAccessKey: process.env.S3_SECRET_ACCESS_KEY || process.env.AWS_SECRET_ACCESS_KEY,
+  region: process.env.S3_REGION || process.env.AWS_REGION || 'us-east-1'
 };
 
 const s3 = new AWS.S3(s3Config);
-const useS3Storage = process.env.AWS_S3_ENABLED === 'true';
+const useS3Storage = process.env.S3_ENABLED === 'true' || process.env.AWS_S3_ENABLED === 'true';
 
 // Determine which S3 bucket to use based on environment
 function getBucketName() {
@@ -37,7 +37,7 @@ function getBucketName() {
 }
 
 // Override bucket name if explicitly set in environment
-const bucketName = process.env.AWS_S3_BUCKET || getBucketName();
+const bucketName = process.env.S3_BUCKET || process.env.AWS_S3_BUCKET || getBucketName();
 
 // Configure local storage directory
 const uploadDir = process.env.UPLOAD_DIR || './uploads';
