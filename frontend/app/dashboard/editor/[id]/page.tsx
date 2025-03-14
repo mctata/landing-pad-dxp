@@ -5,6 +5,8 @@ import { useParams, useRouter } from 'next/navigation';
 import { EditorCanvas } from '@/components/editor/EditorCanvas';
 import { EditorToolbar } from '@/components/editor/EditorToolbar';
 import { PageElementsMenu } from '@/components/editor/PageElementsMenu';
+import { AIContentSidebar } from '@/components/editor/AIContentSidebar';
+import { AIStyleSuggestion } from '@/components/editor/AIStyleSuggestion';
 import { AISuggestionPanel, AIContentModal } from '@/components/ai';
 import { AIProvider } from '@/lib/ai/ai-context';
 import { useEditorStore } from '@/lib/editor/editor-store';
@@ -46,6 +48,7 @@ export default function EditorPage() {
     deleteElement,
     reorderElements,
     saveProject,
+    updateProjectSettings,
   } = useEditorStore();
   
   // Fetch project data
@@ -172,6 +175,11 @@ export default function EditorPage() {
   const currentPage = project?.pages.find(page => page.id === currentPageId);
   const elements = currentPage?.elements || [];
   
+  // Get the selected element
+  const selectedElement = selectedElementId
+    ? elements.find(element => element.id === selectedElementId) || null
+    : null;
+  
   // Handle element actions
   const handleAddElement = (type: string) => {
     if (currentPageId) {
@@ -252,6 +260,34 @@ export default function EditorPage() {
     setTimeout(handleSaveProject, 500);
   };
 
+  // Handle applying color scheme from AI suggestions
+  const handleApplyColorScheme = (colors: any) => {
+    if (!project) return;
+    
+    updateProjectSettings({
+      colors
+    });
+    
+    toast.success('Color scheme applied successfully');
+    
+    // Auto-save
+    setTimeout(handleSaveProject, 500);
+  };
+  
+  // Handle applying font pairing from AI suggestions
+  const handleApplyFontPairing = (fonts: any) => {
+    if (!project) return;
+    
+    updateProjectSettings({
+      fonts
+    });
+    
+    toast.success('Font pairing applied successfully');
+    
+    // Auto-save
+    setTimeout(handleSaveProject, 500);
+  };
+
   // Get default settings for a new element
   const getDefaultSettingsForElement = (type: string) => {
     return {
@@ -327,6 +363,13 @@ export default function EditorPage() {
           onAddPage={handleAddPage}
           openPanel={openPanel}
           setOpenPanel={setOpenPanel}
+          onOpenAIContent={() => {
+            if (selectedElementId) {
+              setOpenPanel('ai-content');
+            } else {
+              toast.info('Please select an element first');
+            }
+          }}
         />
         
         <div className="flex-1 flex overflow-hidden">
@@ -336,6 +379,18 @@ export default function EditorPage() {
               onAddElement={handleAddElement}
               isOpen={openPanel === 'elements'}
               onClose={() => setOpenPanel(null)}
+            />
+          )}
+          
+          {/* AI Content Sidebar */}
+          {openPanel === 'ai-content' && selectedElementId && (
+            <AIContentSidebar
+              isOpen={openPanel === 'ai-content'}
+              onClose={() => setOpenPanel(null)}
+              elementId={selectedElementId}
+              elementType={selectedElement?.type || null}
+              currentContent={selectedElement?.content || {}}
+              onApplyContent={handleUpdateElement}
             />
           )}
           
@@ -352,9 +407,37 @@ export default function EditorPage() {
             />
           </div>
           
-          {/* Settings Panel would go here */}
+          {/* AI Style Suggestions */}
+          {openPanel === 'ai-style' && (
+            <div className="w-96 border-l border-secondary-200 bg-white h-full overflow-auto">
+              <div className="p-4 border-b border-secondary-200">
+                <div className="flex justify-between items-center">
+                  <h3 className="text-lg font-medium text-secondary-900">AI Style Suggestions</h3>
+                  <button
+                    type="button"
+                    className="h-8 w-8 rounded-md text-secondary-500 hover:bg-secondary-100 flex items-center justify-center"
+                    onClick={() => setOpenPanel(null)}
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                      <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
+                    </svg>
+                  </button>
+                </div>
+              </div>
+              
+              <AIStyleSuggestion
+                websiteType={project.name}
+                currentColors={project.settings.colors}
+                currentFonts={project.settings.fonts}
+                onApplyColorScheme={handleApplyColorScheme}
+                onApplyFontPairing={handleApplyFontPairing}
+              />
+            </div>
+          )}
+          
+          {/* Website Settings Panel */}
           {openPanel === 'website-settings' && (
-            <div className="w-80 border-l border-secondary-200 bg-white h-full">
+            <div className="w-80 border-l border-secondary-200 bg-white h-full overflow-auto">
               <div className="p-4 border-b border-secondary-200">
                 <div className="flex justify-between items-center mb-4">
                   <h3 className="text-lg font-medium text-secondary-900">Website Settings</h3>
@@ -393,6 +476,32 @@ export default function EditorPage() {
                         style={{ backgroundColor: project.settings.colors.secondary }}
                       />
                     </div>
+                    <div>
+                      <label className="block text-xs text-secondary-500 mb-1">Accent</label>
+                      <div 
+                        className="h-10 rounded border border-secondary-300 cursor-pointer"
+                        style={{ backgroundColor: project.settings.colors.accent }}
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs text-secondary-500 mb-1">Text</label>
+                      <div 
+                        className="h-10 rounded border border-secondary-300 cursor-pointer"
+                        style={{ backgroundColor: project.settings.colors.text }}
+                      />
+                    </div>
+                  </div>
+                  
+                  <div className="mt-4">
+                    <button
+                      onClick={() => setOpenPanel('ai-style')}
+                      className="text-sm text-primary-600 hover:text-primary-700 flex items-center"
+                    >
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1" viewBox="0 0 20 20" fill="currentColor">
+                        <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-8.707l-3-3a1 1 0 00-1.414 0l-3 3a1 1 0 001.414 1.414L9 9.414V13a1 1 0 102 0V9.414l1.293 1.293a1 1 0 001.414-1.414z" clipRule="evenodd" />
+                      </svg>
+                      Get AI Style Suggestions
+                    </button>
                   </div>
                 </div>
                 
@@ -402,14 +511,30 @@ export default function EditorPage() {
                   <div className="space-y-3">
                     <div>
                       <label className="block text-xs text-secondary-500 mb-1">Heading Font</label>
-                      <select className="input-field">
+                      <select className="w-full px-3 py-2 border border-secondary-300 rounded-md shadow-sm focus:outline-none focus:ring-primary-500 focus:border-primary-500">
                         <option>{project.settings.fonts.heading}</option>
                       </select>
                     </div>
                     <div>
                       <label className="block text-xs text-secondary-500 mb-1">Body Font</label>
-                      <select className="input-field">
+                      <select className="w-full px-3 py-2 border border-secondary-300 rounded-md shadow-sm focus:outline-none focus:ring-primary-500 focus:border-primary-500">
                         <option>{project.settings.fonts.body}</option>
+                      </select>
+                    </div>
+                  </div>
+                </div>
+                
+                <div className="mb-6">
+                  <h4 className="text-sm font-medium text-secondary-900 mb-2">Global Styles</h4>
+                  <div className="space-y-3">
+                    <div>
+                      <label className="block text-xs text-secondary-500 mb-1">Border Radius</label>
+                      <select className="w-full px-3 py-2 border border-secondary-300 rounded-md shadow-sm focus:outline-none focus:ring-primary-500 focus:border-primary-500">
+                        <option value="0">None</option>
+                        <option value="0.125rem">Small</option>
+                        <option value="0.25rem">Medium</option>
+                        <option value="0.5rem" selected={project.settings.globalStyles.borderRadius === '0.5rem'}>Large</option>
+                        <option value="9999px">Pill</option>
                       </select>
                     </div>
                   </div>
@@ -438,8 +563,32 @@ export default function EditorPage() {
           )}
         </div>
         
-        {/* Fixed save button */}
-        <div className="fixed bottom-6 right-6">
+        {/* Fixed toolbar for AI actions */}
+        <div className="fixed bottom-6 right-6 flex space-x-2">
+          {selectedElementId && (
+            <button
+              className="p-2 bg-gradient-to-r from-indigo-500 to-purple-600 text-white font-medium rounded-md shadow-md hover:from-indigo-600 hover:to-purple-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 flex items-center"
+              onClick={() => setOpenPanel('ai-content')}
+              title="Generate AI Content for Selected Element"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-1" viewBox="0 0 20 20" fill="currentColor">
+                <path d="M13 6a3 3 0 11-6 0 3 3 0 016 0zM18 8a2 2 0 11-4 0 2 2 0 014 0zM14 15a4 4 0 00-8 0v3h8v-3zM6 8a2 2 0 11-4 0 2 2 0 014 0zM16 18v-3a5.972 5.972 0 00-.75-2.906A3.005 3.005 0 0119 15v3h-3zM4.75 12.094A5.973 5.973 0 004 15v3H1v-3a3 3 0 013.75-2.906z" />
+              </svg>
+              AI Content
+            </button>
+          )}
+          
+          <button
+            className="p-2 bg-gradient-to-r from-indigo-500 to-purple-600 text-white font-medium rounded-md shadow-md hover:from-indigo-600 hover:to-purple-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 flex items-center"
+            onClick={() => setOpenPanel('ai-style')}
+            title="Get AI Style Suggestions"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-1" viewBox="0 0 20 20" fill="currentColor">
+              <path fillRule="evenodd" d="M4 2a2 2 0 00-2 2v11a3 3 0 106 0V4a2 2 0 00-2-2H4zm1 14a1 1 0 100-2 1 1 0 000 2zm5-1.757l4.9-4.9a2 2 0 000-2.828L13.485 5.1a2 2 0 00-2.828 0L10 5.757v8.486zM16 18H9.071l6-6H16a2 2 0 012 2v2a2 2 0 01-2 2z" clipRule="evenodd" />
+            </svg>
+            AI Style
+          </button>
+          
           <button
             className="px-4 py-2 bg-primary-600 text-white font-medium rounded-md shadow-md hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2"
             onClick={handleSaveProject}
