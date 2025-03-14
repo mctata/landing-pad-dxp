@@ -12,12 +12,16 @@ const envVars = {
   // Server configuration
   server: {
     required: ['PORT', 'NODE_ENV'],
-    optional: ['API_VERSION', 'LOG_LEVEL', 'LOG_FORMAT', 'ENABLE_COMPRESSION', 'ENABLE_HELMET']
+    optional: ['API_VERSION', 'LOG_LEVEL', 'LOG_FORMAT', 'ENABLE_COMPRESSION', 'ENABLE_HELMET', 'FRONTEND_URL']
   },
   // Database configuration
   database: {
     required: [], // Either DB_URL or individual connection params
-    optional: ['DB_URL', 'DB_HOST', 'DB_PORT', 'DB_NAME', 'DB_USER', 'DB_PASSWORD', 'DB_SSL']
+    optional: [
+      'DB_URL', 'DB_HOST', 'DB_PORT', 'DB_NAME', 'DB_USER', 'DB_PASSWORD', 
+      'DB_SSL', 'DB_SSL_REJECT_UNAUTHORIZED', 'DB_POOL_MAX', 'DB_POOL_MIN', 
+      'DB_POOL_ACQUIRE', 'DB_POOL_IDLE', 'DB_RETRY_MAX'
+    ]
   },
   // Authentication configuration
   auth: {
@@ -25,17 +29,17 @@ const envVars = {
     optional: [
       'JWT_ACCESS_SECRET', 'JWT_ACCESS_EXPIRATION',
       'JWT_REFRESH_SECRET', 'JWT_REFRESH_EXPIRATION',
-      'ENABLE_COOKIE_SECURE', 'BYPASS_AUTH'
+      'ENABLE_COOKIE_SECURE', 'BYPASS_AUTH', 'AUTH_FETCH_USER',
+      'ASSUME_PAID_USER'
     ]
   },
   // CORS configuration
   cors: {
-    required: ['CORS_ORIGIN'],
-    optional: ['CORS_METHODS']
+    optional: ['CORS_ORIGIN', 'CORS_METHODS']
   },
   // Rate limiting
   rateLimiting: {
-    optional: ['RATE_LIMIT_MAX', 'RATE_LIMIT_WINDOW_MS']
+    optional: ['RATE_LIMIT_MAX', 'RATE_LIMIT_WINDOW_MS', 'API_RATE_LIMIT', 'API_RATE_LIMIT_WINDOW']
   },
   // OpenAI configuration
   openai: {
@@ -43,15 +47,39 @@ const envVars = {
   },
   // Deployment configuration
   deployment: {
-    optional: ['RUN_WORKER_IN_PROCESS', 'ASSUME_PAID_USER']
+    optional: [
+      'RUN_WORKER_IN_PROCESS', 'WORKER_CONCURRENCY', 'WORKER_ENABLED',
+      'BUILD_DIR', 'VERCEL_API_TOKEN', 'VERCEL_PROJECT_ID',
+      'DEPLOYMENT_API_ENDPOINT', 'DEFAULT_HOST',
+      'WEBHOOK_SECRET', 'VERCEL_WEBHOOK_SECRET'
+    ]
   },
   // Storage configuration
   storage: {
-    optional: ['UPLOAD_DIR', 'NEXT_PUBLIC_STORAGE_URL', 'NEXT_PUBLIC_UPLOADS_URL']
+    optional: [
+      'UPLOAD_DIR', 'NEXT_PUBLIC_STORAGE_URL', 'NEXT_PUBLIC_UPLOADS_URL',
+      'MAX_FILE_SIZE', 'ALLOWED_FILE_TYPES'
+    ]
   },
   // Redis configuration
   redis: {
-    optional: ['REDIS_URL']
+    optional: [
+      'REDIS_URL', 'REDIS_HOST', 'REDIS_PORT', 'REDIS_PASSWORD',
+      'CACHE_ENABLED', 'CACHE_TTL'
+    ]
+  },
+  // Stripe configuration
+  stripe: {
+    optional: [
+      'STRIPE_SECRET_KEY', 'STRIPE_WEBHOOK_SECRET',
+      'STRIPE_BASIC_PRICE_ID', 'STRIPE_PRO_PRICE_ID'
+    ]
+  },
+  // Email configuration
+  email: {
+    optional: [
+      'EMAIL_HOST', 'EMAIL_PORT', 'EMAIL_USER', 'EMAIL_PASSWORD', 'EMAIL_FROM'
+    ]
   }
 };
 
@@ -155,17 +183,54 @@ function loadDevDefaults() {
     const defaults = {
       PORT: '3001',
       JWT_SECRET: 'dev_jwt_secret_key_not_for_production',
+      JWT_ACCESS_SECRET: 'dev_access_key_not_for_production',
+      JWT_REFRESH_SECRET: 'dev_refresh_key_not_for_production',
+      JWT_ACCESS_EXPIRATION: '1h',
+      JWT_REFRESH_EXPIRATION: '7d',
       CORS_ORIGIN: 'http://localhost:3000',
+      FRONTEND_URL: 'http://localhost:3000',
+      
+      // Database
       DB_HOST: 'localhost',
       DB_PORT: '5432',
       DB_NAME: 'landing_pad_dev',
       DB_USER: 'postgres',
       DB_PASSWORD: 'postgres',
+      DB_SSL: 'false',
+      DB_POOL_MAX: '10',
+      DB_POOL_MIN: '2',
+      
+      // Authentication
+      BYPASS_AUTH: 'false',
+      AUTH_FETCH_USER: 'true',
+      ASSUME_PAID_USER: 'true',
+      
+      // Rate limiting
+      RATE_LIMIT_MAX: '100',
+      RATE_LIMIT_WINDOW_MS: '900000',
+      
+      // Logging
       LOG_LEVEL: 'debug',
-      OPENAI_MODEL: 'gpt-3.5-turbo',
+      LOG_FORMAT: 'dev',
+      
+      // File uploads
       UPLOAD_DIR: './uploads',
+      MAX_FILE_SIZE: '5242880', // 5MB
+      ALLOWED_FILE_TYPES: 'image/jpeg,image/png,image/gif,image/webp,application/pdf',
       NEXT_PUBLIC_STORAGE_URL: 'http://localhost:3001/storage',
-      NEXT_PUBLIC_UPLOADS_URL: 'http://localhost:3001/uploads'
+      NEXT_PUBLIC_UPLOADS_URL: 'http://localhost:3001/uploads',
+      
+      // OpenAI
+      OPENAI_MODEL: 'gpt-3.5-turbo',
+      
+      // Cache settings
+      CACHE_ENABLED: 'true',
+      CACHE_TTL: '3600',
+      
+      // Worker settings
+      WORKER_ENABLED: 'true',
+      WORKER_CONCURRENCY: '5',
+      RUN_WORKER_IN_PROCESS: 'true'
     };
     
     // Only set if not already set
