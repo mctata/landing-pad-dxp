@@ -122,6 +122,12 @@ app.use(express.urlencoded({ extended: true, limit: '1mb' }));
 // Parse cookies (for refresh token)
 app.use(cookieParser());
 
+// Serve files from the uploads directory if not using S3
+const path = require('path');
+const uploadDir = process.env.UPLOAD_DIR || './uploads';
+app.use('/uploads', express.static(path.join(process.cwd(), uploadDir)));
+logger.info(`Serving static files from: ${path.join(process.cwd(), uploadDir)}`);
+
 // === Routes ===
 
 // API version prefix
@@ -146,10 +152,24 @@ app.get('/health', async (req, res) => {
   try {
     const dbStatus = await testConnection();
     
+    // Check storage service health
+    let storageStatus = { service: 'not configured' };
+    try {
+      const storageService = require('./services/storageService');
+      const storageHealthCheck = await storageService.healthCheck();
+      storageStatus = storageHealthCheck.success
+        ? { service: storageHealthCheck.storage, status: 'connected', details: storageHealthCheck.message }
+        : { service: storageHealthCheck.storage, status: 'error', details: storageHealthCheck.error };
+    } catch (storageError) {
+      logger.warn('Storage service health check failed:', storageError.message);
+      storageStatus = { service: 'error', status: 'disconnected', details: storageError.message };
+    }
+    
     res.status(200).json({ 
       status: 'healthy',
       env: process.env.NODE_ENV || 'development',
       database: dbStatus ? 'connected' : 'disconnected',
+      storage: storageStatus,
       uptime: process.uptime(),
       timestamp: new Date().toISOString()
     });

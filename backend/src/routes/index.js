@@ -11,6 +11,7 @@ const adminRoutes = require('./admin.routes');
 const publishRoutes = require('./publish.routes');
 const imageRoutes = require('./image.routes');
 const docsRoutes = require('./docs.routes');
+const storageRoutes = require('./storage.routes');
 
 // Mount all route groups
 router.use('/api/auth', authRoutes);
@@ -24,5 +25,6 @@ router.use('/api/admin', adminRoutes);
 router.use('/api/websites', publishRoutes);
 router.use('/api/images', imageRoutes);
 router.use('/api/docs', docsRoutes);
+router.use('/api/storage', storageRoutes);
 
 module.exports = router;

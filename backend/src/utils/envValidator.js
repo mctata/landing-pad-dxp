@@ -61,6 +61,13 @@ const envVars = {
       'MAX_FILE_SIZE', 'ALLOWED_FILE_TYPES'
     ]
   },
+  // AWS S3 configuration
+  aws: {
+    optional: [
+      'AWS_S3_ENABLED', 'AWS_ACCESS_KEY_ID', 'AWS_SECRET_ACCESS_KEY',
+      'AWS_REGION', 'AWS_S3_BUCKET'
+    ]
+  },
   // Redis configuration
   redis: {
     optional: [
@@ -220,6 +227,11 @@ function loadDevDefaults() {
       NEXT_PUBLIC_STORAGE_URL: 'http://localhost:3001/storage',
       NEXT_PUBLIC_UPLOADS_URL: 'http://localhost:3001/uploads',
       
+      // AWS S3
+      AWS_S3_ENABLED: 'false',
+      AWS_REGION: 'us-east-1',
+      AWS_S3_BUCKET: 'landingpad-dxp-dev',
+      
       // OpenAI
       OPENAI_MODEL: 'gpt-3.5-turbo',
       
@@ -240,6 +252,26 @@ function loadDevDefaults() {
         logger.debug(`[DEV] Setting default value for ${key}`);
       }
     });
+    
+    // Special case for S3 bucket name based on environment
+    if (!process.env.AWS_S3_BUCKET) {
+      const env = process.env.NODE_ENV || 'development';
+      
+      switch (env) {
+        case 'production':
+          process.env.AWS_S3_BUCKET = 'landingpad-dxp-prod';
+          break;
+        case 'staging':
+          process.env.AWS_S3_BUCKET = 'landingpad-dxp-staging';
+          break;
+        case 'development':
+        default:
+          process.env.AWS_S3_BUCKET = 'landingpad-dxp-dev';
+          break;
+      }
+      
+      logger.debug(`[ENV] Setting AWS S3 bucket for ${env} environment: ${process.env.AWS_S3_BUCKET}`);
+    }
     
     logger.info('Development environment defaults loaded');
   }
