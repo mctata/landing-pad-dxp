@@ -163,6 +163,9 @@ export const UserManagement: React.FC = () => {
     return Object.keys(errors).length === 0;
   };
 
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
@@ -171,6 +174,7 @@ export const UserManagement: React.FC = () => {
     }
     
     try {
+      setIsSubmitting(true);
       if (isEditing && currentUser) {
         await axios.put(`/api/admin/users/${currentUser.id}`, formData);
       } else {
@@ -186,6 +190,8 @@ export const UserManagement: React.FC = () => {
         setError(isEditing ? 'Failed to update user' : 'Failed to create user');
       }
       console.error(err);
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -556,21 +562,35 @@ export const UserManagement: React.FC = () => {
                           <label htmlFor="password" className="block text-sm font-medium text-gray-700">
                             Password
                           </label>
-                          <input
-                            type="password"
-                            name="password"
-                            id="password"
-                            value={formData.password || ''}
-                            onChange={handleInputChange}
-                            autoComplete="new-password"
-                            className={`mt-1 block w-full rounded-md ${
-                              formErrors.password 
-                                ? 'border-red-300 focus:border-red-500 focus:ring-red-500' 
-                                : 'border-gray-300 focus:border-blue-500 focus:ring-blue-500'
-                            } shadow-sm sm:text-sm`}
-                            aria-invalid={formErrors.password ? 'true' : 'false'}
-                            aria-describedby={formErrors.password ? 'password-error' : undefined}
-                          />
+                          <div className="relative">
+                            <input
+                              type={showPassword ? "text" : "password"}
+                              name="password"
+                              id="password"
+                              value={formData.password || ''}
+                              onChange={handleInputChange}
+                              autoComplete="new-password"
+                              className={`mt-1 block w-full rounded-md ${
+                                formErrors.password 
+                                  ? 'border-red-300 focus:border-red-500 focus:ring-red-500' 
+                                  : 'border-gray-300 focus:border-blue-500 focus:ring-blue-500'
+                              } shadow-sm sm:text-sm pr-10`}
+                              aria-invalid={formErrors.password ? 'true' : 'false'}
+                              aria-describedby={formErrors.password ? 'password-error' : undefined}
+                            />
+                            <button
+                              type="button"
+                              className="absolute inset-y-0 right-0 mt-1 pr-3 flex items-center text-gray-400 hover:text-gray-500"
+                              onClick={() => setShowPassword(!showPassword)}
+                              aria-label={showPassword ? 'Hide password' : 'Show password'}
+                            >
+                              {showPassword ? (
+                                <img src="/images/icons/eye-off.svg" alt="" className="h-5 w-5" />
+                              ) : (
+                                <img src="/images/icons/eye.svg" alt="" className="h-5 w-5" />
+                              )}
+                            </button>
+                          </div>
                           {formErrors.password && (
                             <p className="mt-2 text-sm text-red-600" id="password-error">
                               {formErrors.password}
@@ -588,7 +608,7 @@ export const UserManagement: React.FC = () => {
                           name="role"
                           value={formData.role}
                           onChange={handleInputChange}
-                          className="mt-1 block w-full rounded-md border border-gray-300 bg-white py-2 px-3 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-blue-500 sm:text-sm"
+                          className="mt-1 block w-full rounded-md border border-gray-300 bg-gray-50 py-2 px-3 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-blue-500 sm:text-sm"
                         >
                           <option value="user">User</option>
                           <option value="admin">Admin</option>
@@ -605,7 +625,7 @@ export const UserManagement: React.FC = () => {
                           name="status"
                           value={formData.status}
                           onChange={handleInputChange}
-                          className="mt-1 block w-full rounded-md border border-gray-300 bg-white py-2 px-3 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-blue-500 sm:text-sm"
+                          className="mt-1 block w-full rounded-md border border-gray-300 bg-gray-50 py-2 px-3 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-blue-500 sm:text-sm"
                         >
                           <option value="active">Active</option>
                           <option value="inactive">Inactive</option>
@@ -616,9 +636,17 @@ export const UserManagement: React.FC = () => {
                     <div className="mt-5 sm:mt-6 sm:grid sm:grid-flow-row-dense sm:grid-cols-2 sm:gap-3">
                       <button
                         type="submit"
-                        className="inline-flex w-full justify-center rounded-md border border-transparent bg-blue-600 px-4 py-2 text-base font-medium text-white shadow-sm hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 sm:col-start-2 sm:text-sm"
+                        disabled={isSubmitting}
+                        className="inline-flex w-full justify-center rounded-md border border-transparent bg-blue-600 px-4 py-2 text-base font-medium text-white shadow-sm hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 sm:col-start-2 sm:text-sm disabled:opacity-75"
                       >
-                        {isEditing ? 'Save Changes' : 'Create User'}
+                        {isSubmitting ? (
+                          <>
+                            <span className="mr-2 inline-block h-4 w-4 animate-spin rounded-full border-t-2 border-white"></span>
+                            {isEditing ? 'Saving...' : 'Creating...'}
+                          </>
+                        ) : (
+                          isEditing ? 'Save Changes' : 'Create User'
+                        )}
                       </button>
                       <button
                         type="button"

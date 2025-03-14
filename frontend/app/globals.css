@@ -53,6 +53,20 @@ body {
     @apply w-full rounded-md border border-gray-300 px-3 py-2 text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500 shadow-sm;
   }
   
+  /* Safari specific fixes */
+  input, textarea, select {
+    @apply text-gray-900;
+    -webkit-text-fill-color: currentColor; /* Fix for Safari text color issues */
+    background-color: white; /* Prevent Safari from adding its own background */
+  }
+
+  /* Improve focus states for all browsers */
+  input:focus, textarea:focus, select:focus {
+    @apply ring-2 ring-primary-500 border-primary-500 outline-none text-gray-900;
+    background-color: white !important; /* Ensure visible background on focus in all browsers */
+    box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.1); /* Subtle focus glow */
+  }
+  
   .card {
     @apply bg-white rounded-lg shadow-md p-6;
   }

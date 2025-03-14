@@ -1,8 +1,9 @@
 'use client';
 
-import React, { useEffect, ErrorInfo, ComponentType } from 'react';
+import React, { useEffect, ErrorInfo, ComponentType, useState } from 'react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import * as Sentry from '@sentry/nextjs';
+import { usePathname, useSearchParams } from 'next/navigation';
 
 // Import context providers
 import { AuthProvider } from '@/lib/auth/auth-context';
@@ -12,6 +13,7 @@ import { AIProvider } from '@/lib/ai/ai-context';
 import { SubscriptionProvider } from '@/lib/subscription/subscription-context';
 import { trackClientError } from '@/lib/monitoring';
 import { Toaster } from 'react-hot-toast';
+import { PageTransition } from '@/components/ui/LoadingIndicator';
 
 // Create a client with error tracking
 const queryClient = new QueryClient({
@@ -93,6 +95,33 @@ function ErrorFallback({ error, resetError }: { error: Error; resetError: () => 
   );
 }
 
+// Loading provider to handle page transitions
+function LoadingProvider({ children }: { children: React.ReactNode }) {
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const [isLoading, setIsLoading] = useState(false);
+
+  // Listen for route changes
+  useEffect(() => {
+    const handleStart = () => setIsLoading(true);
+    const handleComplete = () => setIsLoading(false);
+
+    // For route change detection in App Router
+    handleComplete(); // Reset on component mount and on pathname/searchParams change
+    
+    return () => {
+      // Cleanup if needed
+    };
+  }, [pathname, searchParams]);
+
+  return (
+    <>
+      {isLoading && <PageTransition />}
+      {children}
+    </>
+  );
+}
+
 export function Providers({ children }: { children: React.ReactNode }) {
   // Initialize performance monitoring
   useEffect(() => {
@@ -130,8 +159,10 @@ export function Providers({ children }: { children: React.ReactNode }) {
             <TemplateProvider>
               <AIProvider>
                 <SubscriptionProvider>
-                  {children}
-                  <Toaster position="top-right" />
+                  <LoadingProvider>
+                    {children}
+                    <Toaster position="top-right" />
+                  </LoadingProvider>
                 </SubscriptionProvider>
               </AIProvider>
             </TemplateProvider>

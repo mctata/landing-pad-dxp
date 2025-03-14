@@ -165,13 +165,33 @@ export default function TemplatesPage() {
     router.push(`/dashboard/create?template=${templateId}`);
   };
 
+  const [previewLoading, setPreviewLoading] = useState<string | null>(null);
+
   const handlePreviewTemplate = (templateId: string) => {
-    // In a real app, this would open a preview
-    toast({
-      title: 'Preview',
-      message: `Preview functionality for template ${templateId} is not available in the demo`,
-      type: 'info',
-    });
+    // Simulate loading a preview
+    setPreviewLoading(templateId);
+    
+    // Simulate API call with delay
+    setTimeout(() => {
+      setPreviewLoading(null);
+      
+      // Show preview for all templates except template3
+      if (templateId === 'template3') {
+        toast({
+          title: 'Preview Unavailable',
+          message: `Preview functionality for template ${templateId} is not available in the demo`,
+          type: 'info',
+        });
+      } else {
+        // In a real app, this would open a preview modal
+        toast({
+          title: 'Preview Ready',
+          message: `Preview for ${templateId} loaded successfully`,
+          type: 'success',
+        });
+        // Here you would typically open a modal with the preview
+      }
+    }, 1000);
   };
 
   return (
@@ -261,7 +281,7 @@ export default function TemplatesPage() {
             >
               <div className="relative">
                 <img
-                  src={template.thumbnail}
+                  src={template.thumbnail.replace("via.placeholder.com", "images.unsplash.com/photo-1486312338219-ce68d2c6f44d")}
                   alt={template.name}
                   className="h-48 w-full object-cover"
                 />
@@ -315,9 +335,17 @@ export default function TemplatesPage() {
                   <button
                     type="button"
                     onClick={() => handlePreviewTemplate(template.id)}
-                    className="inline-flex items-center px-3 py-2 border border-gray-300 text-sm leading-4 font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                    disabled={previewLoading === template.id}
+                    className="inline-flex items-center px-3 py-2 border border-gray-300 text-sm leading-4 font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-75"
                   >
-                    Preview
+                    {previewLoading === template.id ? (
+                      <>
+                        <span className="mr-2 inline-block h-3 w-3 animate-spin rounded-full border-t-2 border-gray-500"></span>
+                        Loading...
+                      </>
+                    ) : (
+                      'Preview'
+                    )}
                   </button>
                 </div>
               </div>

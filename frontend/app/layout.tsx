@@ -2,6 +2,7 @@ import './globals.css'
 import './styles/accessibility.css'
 import { Inter } from 'next/font/google'
 import { Providers } from './providers'
+import { ToastProvider } from '../components/ui/toast'
 
 // Optimize font loading to prevent layout shift
 const inter = Inter({ 
@@ -33,9 +34,11 @@ export default function RootLayout({
           Skip to content
         </a>
         <Providers>
-          <main id="main-content">
-            {children}
-          </main>
+          <ToastProvider>
+            <main id="main-content">
+              {children}
+            </main>
+          </ToastProvider>
         </Providers>
       </body>
     </html>

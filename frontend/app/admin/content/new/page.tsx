@@ -77,6 +77,16 @@ const NewContentPage: React.FC = () => {
       setLoading(false);
     }
   };
+  
+  // Add focus management for accessibility
+  const contentRef = React.useRef<HTMLTextAreaElement>(null);
+  
+  // Focus the element with error when JSON is invalid
+  React.useEffect(() => {
+    if (error?.includes('Invalid JSON') && contentRef.current) {
+      contentRef.current.focus();
+    }
+  }, [error]);
 
   return (
     <div className="px-4 sm:px-6 lg:px-8 py-6">
@@ -135,6 +145,8 @@ const NewContentPage: React.FC = () => {
                     onChange={(e) => setTitle(e.target.value)}
                     className="shadow-sm focus:ring-blue-500 focus:border-blue-500 block w-full sm:text-sm border-gray-300 rounded-md"
                     required
+                    aria-label="Content title"
+                    aria-required="true"
                   />
                 </div>
               </div>
@@ -151,6 +163,7 @@ const NewContentPage: React.FC = () => {
                     value={description}
                     onChange={(e) => setDescription(e.target.value)}
                     className="shadow-sm focus:ring-blue-500 focus:border-blue-500 block w-full sm:text-sm border border-gray-300 rounded-md"
+                    aria-label="Content description"
                   />
                 </div>
                 <p className="mt-2 text-sm text-gray-500">
@@ -168,7 +181,8 @@ const NewContentPage: React.FC = () => {
                     name="type"
                     value={type}
                     onChange={(e) => setType(e.target.value)}
-                    className="shadow-sm focus:ring-blue-500 focus:border-blue-500 block w-full sm:text-sm border-gray-300 rounded-md"
+                    className="shadow-sm focus:ring-blue-500 focus:border-blue-500 block w-full sm:text-sm border-gray-300 rounded-md bg-gray-50"
+                    aria-label="Content type"
                   >
                     {ContentTypes.map((contentType) => (
                       <option key={contentType.id} value={contentType.id}>
@@ -248,7 +262,13 @@ const NewContentPage: React.FC = () => {
                     onChange={(e) => setContent(e.target.value)}
                     className="shadow-sm focus:ring-blue-500 focus:border-blue-500 block w-full sm:text-sm border border-gray-300 rounded-md font-mono"
                     required
+                    aria-label="Content JSON"
+                    aria-describedby="content-description"
+                    ref={contentRef}
                   />
+                  <p id="content-description" className="mt-1 text-xs text-gray-500">
+                    Enter valid JSON content. Example: {"type": "page", "elements": []}
+                  </p>
                 </div>
               </div>
             </div>
@@ -267,9 +287,16 @@ const NewContentPage: React.FC = () => {
             <button
               type="submit"
               disabled={loading}
-              className="ml-3 inline-flex justify-center py-2 px-4 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+              className="ml-3 inline-flex justify-center py-2 px-4 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-75"
             >
-              {loading ? 'Creating...' : 'Create'}
+              {loading ? (
+                <>
+                  <span className="mr-2 inline-block h-4 w-4 animate-spin rounded-full border-t-2 border-white"></span>
+                  Creating...
+                </>
+              ) : (
+                'Create'
+              )}
             </button>
           </div>
         </div>
