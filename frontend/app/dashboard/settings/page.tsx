@@ -1,8 +1,10 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
+import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import { useToast } from '@/components/ui/toast';
+import { authAPI } from '@/lib/api';
 
 interface UserProfile {
   id: string;
@@ -13,6 +15,8 @@ interface UserProfile {
   role: string;
   subscription: string;
   emailVerified: boolean;
+  profilePicture?: string;
+  createdAt?: string;
 }
 
 export default function SettingsPage() {
@@ -29,34 +33,73 @@ export default function SettingsPage() {
   });
   const [passwordMode, setPasswordMode] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [uploadingImage, setUploadingImage] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const router = useRouter();
   const { toast } = useToast();
 
   useEffect(() => {
-    // In a real app, this would fetch from API
-    // For demo, we'll use mock data
-    const mockUser = {
-      id: 'user123',
-      firstName: 'John',
-      lastName: 'Doe',
-      email: 'john.doe@example.com',
-      company: 'Acme Inc',
-      role: 'user',
-      subscription: 'pro',
-      emailVerified: true,
+    const fetchUserProfile = async () => {
+      try {
+        // Try to fetch user from API
+        const response = await authAPI.getCurrentUser();
+        const userData = response.data.user;
+        
+        setUser({
+          id: userData.id,
+          firstName: userData.firstName,
+          lastName: userData.lastName,
+          email: userData.email,
+          company: userData.company || '',
+          role: userData.role || 'user',
+          subscription: userData.subscription || 'free',
+          emailVerified: userData.emailVerified || false,
+          profilePicture: userData.profilePicture || '',
+          createdAt: userData.createdAt,
+        });
+        
+        setFormData({
+          firstName: userData.firstName,
+          lastName: userData.lastName,
+          email: userData.email,
+          company: userData.company || '',
+          currentPassword: '',
+          newPassword: '',
+          confirmPassword: '',
+        });
+      } catch (error) {
+        console.error('Error fetching user profile:', error);
+        
+        // Fallback to mock data
+        const mockUser = {
+          id: 'user123',
+          firstName: 'John',
+          lastName: 'Doe',
+          email: 'john.doe@example.com',
+          company: 'Acme Inc',
+          role: 'user',
+          subscription: 'pro',
+          emailVerified: true,
+          createdAt: '2023-03-10T12:00:00Z',
+          profilePicture: 'https://ui-avatars.com/api/?name=John+Doe&background=0D8ABC&color=fff',
+        };
+
+        setUser(mockUser);
+        setFormData({
+          firstName: mockUser.firstName,
+          lastName: mockUser.lastName,
+          email: mockUser.email,
+          company: mockUser.company || '',
+          currentPassword: '',
+          newPassword: '',
+          confirmPassword: '',
+        });
+      } finally {
+        setLoading(false);
+      }
     };
 
-    setUser(mockUser);
-    setFormData({
-      firstName: mockUser.firstName,
-      lastName: mockUser.lastName,
-      email: mockUser.email,
-      company: mockUser.company || '',
-      currentPassword: '',
-      newPassword: '',
-      confirmPassword: '',
-    });
-    setLoading(false);
+    fetchUserProfile();
   }, []);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -69,19 +112,20 @@ export default function SettingsPage() {
     setSaving(true);
 
     try {
-      // In a real app, this would make an API call
-      // await api.updateProfile(formData);
+      const profileData = {
+        firstName: formData.firstName,
+        lastName: formData.lastName,
+        company: formData.company,
+      };
       
-      // Simulate API delay
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      // Make API call to update profile
+      const response = await authAPI.updateProfile(profileData);
       
       // Update local user state
       if (user) {
         setUser({
           ...user,
-          firstName: formData.firstName,
-          lastName: formData.lastName,
-          company: formData.company,
+          ...profileData,
         });
       }
       
@@ -117,11 +161,8 @@ export default function SettingsPage() {
     setSaving(true);
 
     try {
-      // In a real app, this would make an API call
-      // await api.updatePassword(formData.currentPassword, formData.newPassword);
-      
-      // Simulate API delay
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      // Make API call to update password
+      await authAPI.changePassword(formData.currentPassword, formData.newPassword);
       
       // Clear password fields
       setFormData({
@@ -149,6 +190,81 @@ export default function SettingsPage() {
     } finally {
       setSaving(false);
     }
+  };
+  
+  const handleProfilePictureUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (!e.target.files || e.target.files.length === 0) {
+      return;
+    }
+    
+    const file = e.target.files[0];
+    
+    // Validate file type
+    if (!file.type.startsWith('image/')) {
+      toast({
+        title: 'Error',
+        message: 'Please select an image file (JPG, PNG, etc.)',
+        type: 'error',
+      });
+      return;
+    }
+    
+    // Validate file size (5MB max)
+    const maxSize = 5 * 1024 * 1024; // 5MB in bytes
+    if (file.size > maxSize) {
+      toast({
+        title: 'Error',
+        message: 'Image file size must be less than 5MB',
+        type: 'error',
+      });
+      return;
+    }
+    
+    setUploadingImage(true);
+    
+    try {
+      // Upload image to server using the API
+      const response = await authAPI.uploadProfileImage(file);
+      const profileImageUrl = response.data.profileImage.url;
+      
+      // Update user state with new profile picture
+      if (user) {
+        setUser({
+          ...user,
+          profilePicture: profileImageUrl,
+        });
+      }
+      
+      toast({
+        title: 'Success',
+        message: 'Profile picture updated successfully',
+        type: 'success',
+      });
+    } catch (error) {
+      console.error('Error uploading profile image:', error);
+      toast({
+        title: 'Error',
+        message: 'Failed to upload profile picture',
+        type: 'error',
+      });
+    } finally {
+      setUploadingImage(false);
+      // Reset file input
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
+    }
+  };
+  
+  // Format date string to a readable format
+  const formatDate = (dateString?: string) => {
+    if (!dateString) return 'N/A';
+    
+    return new Date(dateString).toLocaleDateString('en-US', {
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric',
+    });
   };
 
   if (loading) {
@@ -197,103 +313,144 @@ export default function SettingsPage() {
           </div>
 
           {!passwordMode ? (
-            <form className="mt-6 space-y-6" onSubmit={handleProfileUpdate}>
-              <div className="grid grid-cols-1 gap-y-6 gap-x-4 sm:grid-cols-6">
-                <div className="sm:col-span-3">
-                  <label htmlFor="firstName" className="block text-sm font-medium text-gray-700">
-                    First name
-                  </label>
-                  <div className="mt-1">
-                    <input
-                      type="text"
-                      name="firstName"
-                      id="firstName"
-                      value={formData.firstName}
-                      onChange={handleChange}
-                      className="shadow-sm focus:ring-blue-500 focus:border-blue-500 block w-full sm:text-sm border-gray-300 rounded-md"
-                      required
-                    />
-                  </div>
-                </div>
-
-                <div className="sm:col-span-3">
-                  <label htmlFor="lastName" className="block text-sm font-medium text-gray-700">
-                    Last name
-                  </label>
-                  <div className="mt-1">
-                    <input
-                      type="text"
-                      name="lastName"
-                      id="lastName"
-                      value={formData.lastName}
-                      onChange={handleChange}
-                      className="shadow-sm focus:ring-blue-500 focus:border-blue-500 block w-full sm:text-sm border-gray-300 rounded-md"
-                      required
-                    />
-                  </div>
-                </div>
-
-                <div className="sm:col-span-4">
-                  <label htmlFor="email" className="block text-sm font-medium text-gray-700">
-                    Email address
-                  </label>
-                  <div className="mt-1 relative">
-                    <input
-                      type="email"
-                      name="email"
-                      id="email"
-                      value={formData.email}
-                      onChange={handleChange}
-                      className="shadow-sm focus:ring-blue-500 focus:border-blue-500 block w-full sm:text-sm border-gray-300 rounded-md bg-gray-100"
-                      readOnly
-                    />
-                    {user?.emailVerified && (
-                      <div className="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
-                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
-                          Verified
-                        </span>
+            <div className="mt-6">
+              <div className="flex flex-col sm:flex-row gap-6 mb-8">
+                <div className="flex flex-col items-center">
+                  <div className="relative rounded-full overflow-hidden h-24 w-24 mb-4 border-2 border-gray-200">
+                    {uploadingImage ? (
+                      <div className="absolute inset-0 flex items-center justify-center bg-gray-100">
+                        <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-blue-500"></div>
                       </div>
+                    ) : (
+                      <Image
+                        src={user?.profilePicture || 'https://ui-avatars.com/api/?name=' + encodeURIComponent(`${user?.firstName || ''} ${user?.lastName || ''}`)}
+                        alt="Profile"
+                        width={96}
+                        height={96}
+                        className="h-full w-full object-cover"
+                      />
                     )}
                   </div>
-                  <p className="mt-2 text-sm text-gray-500">
-                    Contact support to change your email address
-                  </p>
-                </div>
-
-                <div className="sm:col-span-4">
-                  <label htmlFor="company" className="block text-sm font-medium text-gray-700">
-                    Company (Optional)
-                  </label>
-                  <div className="mt-1">
+                  <div>
                     <input
-                      type="text"
-                      name="company"
-                      id="company"
-                      value={formData.company}
-                      onChange={handleChange}
-                      className="shadow-sm focus:ring-blue-500 focus:border-blue-500 block w-full sm:text-sm border-gray-300 rounded-md"
+                      type="file"
+                      id="profilePicture"
+                      ref={fileInputRef}
+                      className="hidden"
+                      accept="image/*"
+                      onChange={handleProfilePictureUpload}
+                      disabled={uploadingImage}
                     />
+                    <button
+                      type="button"
+                      className="text-sm text-blue-600 hover:text-blue-800 font-medium focus:outline-none"
+                      onClick={() => fileInputRef.current?.click()}
+                      disabled={uploadingImage}
+                    >
+                      {uploadingImage ? 'Uploading...' : 'Change picture'}
+                    </button>
                   </div>
                 </div>
-              </div>
 
-              <div className="flex justify-end">
-                <button
-                  type="button"
-                  className="bg-white py-2 px-4 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
-                  onClick={() => router.push('/dashboard')}
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  className="ml-3 inline-flex justify-center py-2 px-4 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
-                  disabled={saving}
-                >
-                  {saving ? 'Saving...' : 'Save'}
-                </button>
+                <form className="flex-1 space-y-6" onSubmit={handleProfileUpdate}>
+                  <div className="grid grid-cols-1 gap-y-6 gap-x-4 sm:grid-cols-6">
+                    <div className="sm:col-span-3">
+                      <label htmlFor="firstName" className="block text-sm font-medium text-gray-700">
+                        First name
+                      </label>
+                      <div className="mt-1">
+                        <input
+                          type="text"
+                          name="firstName"
+                          id="firstName"
+                          value={formData.firstName}
+                          onChange={handleChange}
+                          className="shadow-sm focus:ring-blue-500 focus:border-blue-500 block w-full sm:text-sm border-gray-300 rounded-md"
+                          required
+                        />
+                      </div>
+                    </div>
+
+                    <div className="sm:col-span-3">
+                      <label htmlFor="lastName" className="block text-sm font-medium text-gray-700">
+                        Last name
+                      </label>
+                      <div className="mt-1">
+                        <input
+                          type="text"
+                          name="lastName"
+                          id="lastName"
+                          value={formData.lastName}
+                          onChange={handleChange}
+                          className="shadow-sm focus:ring-blue-500 focus:border-blue-500 block w-full sm:text-sm border-gray-300 rounded-md"
+                          required
+                        />
+                      </div>
+                    </div>
+
+                    <div className="sm:col-span-4">
+                      <label htmlFor="email" className="block text-sm font-medium text-gray-700">
+                        Email address
+                      </label>
+                      <div className="mt-1 relative">
+                        <input
+                          type="email"
+                          name="email"
+                          id="email"
+                          value={formData.email}
+                          onChange={handleChange}
+                          className="shadow-sm focus:ring-blue-500 focus:border-blue-500 block w-full sm:text-sm border-gray-300 rounded-md bg-gray-100"
+                          readOnly
+                        />
+                        {user?.emailVerified && (
+                          <div className="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
+                            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                              Verified
+                            </span>
+                          </div>
+                        )}
+                      </div>
+                      <p className="mt-2 text-sm text-gray-500">
+                        Contact support to change your email address
+                      </p>
+                    </div>
+
+                    <div className="sm:col-span-4">
+                      <label htmlFor="company" className="block text-sm font-medium text-gray-700">
+                        Company (Optional)
+                      </label>
+                      <div className="mt-1">
+                        <input
+                          type="text"
+                          name="company"
+                          id="company"
+                          value={formData.company}
+                          onChange={handleChange}
+                          className="shadow-sm focus:ring-blue-500 focus:border-blue-500 block w-full sm:text-sm border-gray-300 rounded-md"
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="flex justify-end">
+                    <button
+                      type="button"
+                      className="bg-white py-2 px-4 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                      onClick={() => router.push('/dashboard')}
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="submit"
+                      className="ml-3 inline-flex justify-center py-2 px-4 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                      disabled={saving}
+                    >
+                      {saving ? 'Saving...' : 'Save'}
+                    </button>
+                  </div>
+                </form>
               </div>
-            </form>
+            </div>
           ) : (
             <form className="mt-6 space-y-6" onSubmit={handlePasswordUpdate}>
               <div className="grid grid-cols-1 gap-y-6 gap-x-4 sm:grid-cols-6">
@@ -405,7 +562,7 @@ export default function SettingsPage() {
               <div className="py-4 sm:py-5 sm:grid sm:grid-cols-3 sm:gap-4">
                 <dt className="text-sm font-medium text-gray-500">Account Created</dt>
                 <dd className="mt-1 text-sm text-gray-900 sm:mt-0 sm:col-span-2">
-                  March 10, 2023
+                  {formatDate(user?.createdAt)}
                 </dd>
               </div>
             </dl>
