@@ -19,10 +19,6 @@ const nextConfig = {
   webpack(config) {
     return config;
   },
-  // Enable App directory
-  experimental: {
-    appDir: true,
-  },
 };
 
 // The Sentry config is added by @sentry/nextjs automatically when installed
