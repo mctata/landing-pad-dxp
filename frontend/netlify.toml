@@ -17,6 +17,8 @@
   NETLIFY_USE_YARN_CACHE = "true"
   # Set production mode
   NODE_ENV = "production"
+  # Install devDependencies during build
+  NPM_FLAGS = "--include=dev"
 
 # Cache Next.js build outputs
 [[plugins]]
