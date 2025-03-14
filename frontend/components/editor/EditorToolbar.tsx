@@ -18,6 +18,7 @@ interface EditorToolbarProps {
   onAddPage: () => void;
   openPanel: string | null;
   setOpenPanel: (panel: string | null) => void;
+  onOpenAIContent?: () => void;
 }
 
 export function EditorToolbar({
@@ -28,6 +29,7 @@ export function EditorToolbar({
   onAddPage,
   openPanel,
   setOpenPanel,
+  onOpenAIContent,
 }: EditorToolbarProps) {
   const [isPageDropdownOpen, setIsPageDropdownOpen] = useState(false);
   const [isPageEditMode, setIsPageEditMode] = useState(false);
@@ -60,6 +62,26 @@ export function EditorToolbar({
       setOpenPanel(null);
     } else {
       setOpenPanel('ai-assistant');
+    }
+  };
+
+  // Toggle AI content panel
+  const toggleAIContentPanel = () => {
+    if (openPanel === 'ai-content') {
+      setOpenPanel(null);
+    } else if (onOpenAIContent) {
+      onOpenAIContent();
+    } else {
+      setOpenPanel('ai-content');
+    }
+  };
+
+  // Toggle AI style panel
+  const toggleAIStylePanel = () => {
+    if (openPanel === 'ai-style') {
+      setOpenPanel(null);
+    } else {
+      setOpenPanel('ai-style');
     }
   };
   
@@ -227,18 +249,52 @@ export function EditorToolbar({
           Settings
         </Button>
         
-        <Button
-          size="sm"
-          variant={openPanel === 'ai-assistant' ? 'default' : 'secondary'}
-          onClick={toggleAIPanel}
-          className="relative"
-        >
-          <div className="absolute -top-1 -right-1 w-2 h-2 bg-primary-500 rounded-full"></div>
-          <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1" viewBox="0 0 20 20" fill="currentColor">
-            <path d="M13 6a3 3 0 11-6 0 3 3 0 016 0zM18 8a2 2 0 11-4 0 2 2 0 014 0zM14 15a4 4 0 00-8 0v3h8v-3zM6 8a2 2 0 11-4 0 2 2 0 014 0zM16 18v-3a5.972 5.972 0 00-.75-2.906A3.005 3.005 0 0119 15v3h-3zM4.75 12.094A5.973 5.973 0 004 15v3H1v-3a3 3 0 013.75-2.906z" />
-          </svg>
-          AI Assistant
-        </Button>
+        {/* AI Buttons */}
+        <div className="flex items-center">
+          <Button
+            size="sm"
+            variant={openPanel === 'ai-assistant' ? 'default' : 'secondary'}
+            onClick={toggleAIPanel}
+            className="relative"
+          >
+            <div className="absolute -top-1 -right-1 w-2 h-2 bg-primary-500 rounded-full"></div>
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1" viewBox="0 0 20 20" fill="currentColor">
+              <path d="M13 6a3 3 0 11-6 0 3 3 0 016 0zM18 8a2 2 0 11-4 0 2 2 0 014 0zM14 15a4 4 0 00-8 0v3h8v-3zM6 8a2 2 0 11-4 0 2 2 0 014 0zM16 18v-3a5.972 5.972 0 00-.75-2.906A3.005 3.005 0 0119 15v3h-3zM4.75 12.094A5.973 5.973 0 004 15v3H1v-3a3 3 0 013.75-2.906z" />
+            </svg>
+            AI Assistant
+          </Button>
+
+          <div className="mx-1 dropdown relative group">
+            <button className="flex items-center justify-center w-7 h-7 rounded-md hover:bg-secondary-100">
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+                <path fillRule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clipRule="evenodd" />
+              </svg>
+            </button>
+            <div className="dropdown-menu absolute hidden right-0 top-full mt-1 bg-white border border-secondary-200 rounded-md shadow-lg z-10 group-hover:block">
+              <div className="py-1 w-48">
+                <button
+                  className={`flex items-center w-full text-left px-4 py-2 text-sm ${openPanel === 'ai-content' ? 'bg-primary-50 text-primary-700' : 'text-secondary-700 hover:bg-secondary-50'}`}
+                  onClick={toggleAIContentPanel}
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-2" viewBox="0 0 20 20" fill="currentColor">
+                    <path d="M17.414 2.586a2 2 0 00-2.828 0L7 10.172V13h2.828l7.586-7.586a2 2 0 000-2.828z" />
+                    <path fillRule="evenodd" d="M2 6a2 2 0 012-2h4a1 1 0 010 2H4v10h10v-4a1 1 0 112 0v4a2 2 0 01-2 2H4a2 2 0 01-2-2V6z" clipRule="evenodd" />
+                  </svg>
+                  AI Content
+                </button>
+                <button
+                  className={`flex items-center w-full text-left px-4 py-2 text-sm ${openPanel === 'ai-style' ? 'bg-primary-50 text-primary-700' : 'text-secondary-700 hover:bg-secondary-50'}`}
+                  onClick={toggleAIStylePanel}
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-2" viewBox="0 0 20 20" fill="currentColor">
+                    <path fillRule="evenodd" d="M4 2a2 2 0 00-2 2v11a3 3 0 106 0V4a2 2 0 00-2-2H4zm1 14a1 1 0 100-2 1 1 0 000 2zm5-1.757l4.9-4.9a2 2 0 000-2.828L13.485 5.1a2 2 0 00-2.828 0L10 5.757v8.486zM16 18H9.071l6-6H16a2 2 0 012 2v2a2 2 0 01-2 2z" clipRule="evenodd" />
+                  </svg>
+                  AI Style
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
       </div>
       
       {/* Spacer */}
