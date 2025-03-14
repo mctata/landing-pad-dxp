@@ -16,6 +16,12 @@ if ! docker info >/dev/null 2>&1; then
   exit 1
 fi
 
+# Clear browser storage advice
+echo -e "\n${YELLOW}IMPORTANT: After running this script, you should also:${NC}"
+echo -e "1. Clear your browser cookies for localhost"
+echo -e "2. Clear localStorage for localhost in your browser's developer tools"
+echo -e "3. Close and reopen your browser"
+
 # Force kill any remaining containers
 echo -e "\n${YELLOW}Force killing any remaining containers...${NC}"
 docker kill landing-pad-frontend-dev landing-pad-backend-dev landing-pad-redis-dev landing-pad-postgres-dev 2>/dev/null || true
@@ -33,6 +39,19 @@ fi
 # Remove volumes to force clean database
 echo -e "\n${YELLOW}Removing database volume to force clean state...${NC}"
 docker volume rm landing-pad-dxp_postgres-data-dev 2>/dev/null || true
+
+# Check if S3 is properly configured
+echo -e "\n${YELLOW}Checking S3 configuration...${NC}"
+if [ -z "$AWS_ACCESS_KEY_ID" ] || [ -z "$AWS_SECRET_ACCESS_KEY" ]; then
+  echo -e "${YELLOW}AWS credentials not found in environment. S3 storage may not work properly.${NC}"
+  echo -e "Please ensure your .env file contains proper S3 credentials."
+  read -p "Continue anyway? (y/n) " -n 1 -r
+  echo
+  if [[ ! $REPLY =~ ^[Yy]$ ]]; then
+    echo -e "${YELLOW}Operation cancelled.${NC}"
+    exit 0
+  fi
+fi
 
 # Pull latest images to ensure we have the most recent versions
 echo -e "\n${YELLOW}Pulling latest images...${NC}"
@@ -52,6 +71,10 @@ docker exec landing-pad-backend-dev npm run migrate
 echo -e "\n${YELLOW}Running database seed...${NC}"
 docker exec landing-pad-backend-dev npm run db:seed
 
+# Verify S3 connection
+echo -e "\n${YELLOW}Verifying S3 connection...${NC}"
+docker exec landing-pad-backend-dev node -e "require('./src/services/storageService').healthCheck().then(console.log)"
+
 # Verify services are running
 echo -e "\n${YELLOW}Verifying services...${NC}"
 BACKEND_RUNNING=$(docker ps | grep landing-pad-backend-dev | wc -l)
@@ -65,6 +88,8 @@ if [ "$BACKEND_RUNNING" -eq 1 ] && [ "$FRONTEND_RUNNING" -eq 1 ]; then
   echo -e "\n${YELLOW}Test users:${NC}"
   echo -e "Admin: admin@example.com / password123"
   echo -e "Regular user: john@example.com / password123"
+  
+  echo -e "\n${YELLOW}REMINDER: Clear your browser cookies and localStorage for localhost before testing!${NC}"
 else
   echo -e "\n${RED}There may be issues with the services. Please check docker logs:${NC}"
   echo "docker logs landing-pad-backend-dev"

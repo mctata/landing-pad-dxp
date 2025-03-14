@@ -32,5 +32,9 @@ router.post('/:imageId/optimize', imageController.optimizeImage);
 // Stock photo APIs
 router.get('/stock/search', imageController.searchStockPhotos);
 router.get('/stock/random', imageController.getRandomStockPhotos);
+router.post('/stock/save', imageController.saveUnsplashImage);
+
+// Storage health check
+router.get('/storage-check', imageController.checkStorage);
 
 module.exports = router;

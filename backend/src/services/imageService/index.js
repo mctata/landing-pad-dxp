@@ -3,18 +3,20 @@ const path = require('path');
 const axios = require('axios');
 const { v4: uuidv4 } = require('uuid');
 const logger = require('../../utils/logger');
+const storageService = require('../storageService');
 
 /**
  * Service for managing images, including uploads and integration with stock photo APIs
  */
 const imageService = {
   /**
-   * Upload an image to the server
+   * Upload an image to the server or S3
    * @param {Object} imageFile - Image file from multer
    * @param {string} userId - User ID
+   * @param {Object} options - Upload options
    * @returns {Promise<Object>} - Uploaded image details
    */
-  async uploadImage(imageFile, userId) {
+  async uploadImage(imageFile, userId, options = {}) {
     try {
       if (!imageFile) {
         throw new Error('No image file provided');
@@ -24,29 +26,68 @@ const imageService = {
       const fileExtension = path.extname(imageFile.originalname);
       const fileName = `${uuidv4()}${fileExtension}`;
       
-      // Create user-specific directory if it doesn't exist
-      const userUploadDir = path.join(__dirname, '../../../uploads', userId);
-      await fs.mkdir(userUploadDir, { recursive: true });
-      
-      // Save file to disk
-      const filePath = path.join(userUploadDir, fileName);
-      await fs.writeFile(filePath, imageFile.buffer);
-      
-      // Create relative path for storage in database
-      const relativePath = `/uploads/${userId}/${fileName}`;
-      
-      logger.info(`Image uploaded: ${relativePath}`);
-      
-      return {
-        id: uuidv4(),
-        userId,
-        fileName,
-        originalName: imageFile.originalname,
-        filePath: relativePath,
-        fileSize: imageFile.size,
-        mimeType: imageFile.mimetype,
-        createdAt: new Date(),
-      };
+      // Determine if we should use S3
+      if (storageService.isS3Enabled) {
+        logger.info(`Uploading image to S3 for user: ${userId}`);
+        
+        // Prepare file data for S3 upload
+        const folder = options.folder || 'images';
+        const uploadType = options.uploadType || 'uploads';
+        
+        // Upload to S3
+        const uploadResult = await storageService.uploadFile({
+          ...imageFile,
+          uploadType
+        }, folder, userId);
+        
+        if (!uploadResult.success) {
+          throw new Error(uploadResult.error || 'Failed to upload image to S3');
+        }
+        
+        // Return the uploaded image details
+        return {
+          id: uuidv4(),
+          userId,
+          fileName: uploadResult.fileName,
+          originalName: imageFile.originalname,
+          filePath: uploadResult.filePath,
+          url: uploadResult.url,
+          fileSize: imageFile.size,
+          mimeType: imageFile.mimetype,
+          s3: true,
+          createdAt: new Date(),
+        };
+      } else {
+        // Local file system storage
+        // Create user-specific directory if it doesn't exist
+        const userUploadDir = path.join(__dirname, '../../../uploads', userId);
+        await fs.mkdir(userUploadDir, { recursive: true });
+        
+        // Save file to disk
+        const filePath = path.join(userUploadDir, fileName);
+        await fs.writeFile(filePath, imageFile.buffer);
+        
+        // Create relative path for storage in database
+        const relativePath = `/uploads/${userId}/${fileName}`;
+        
+        logger.info(`Image uploaded to local storage: ${relativePath}`);
+        
+        // Build the URL using the configured uploads URL
+        const url = `${process.env.NEXT_PUBLIC_UPLOADS_URL || ''}${relativePath.replace(/\\/g, '/')}`;
+        
+        return {
+          id: uuidv4(),
+          userId,
+          fileName,
+          originalName: imageFile.originalname,
+          filePath: relativePath,
+          url,
+          fileSize: imageFile.size,
+          mimeType: imageFile.mimetype,
+          s3: false,
+          createdAt: new Date(),
+        };
+      }
     } catch (error) {
       logger.error('Error uploading image:', error);
       throw error;
@@ -54,12 +95,28 @@ const imageService = {
   },
   
   /**
-   * Delete an image from the server
+   * Delete an image from the server or S3
    * @param {string} imagePath - Path to the image
    * @returns {Promise<boolean>} - True if deleted successfully
    */
   async deleteImage(imagePath) {
     try {
+      // For S3 paths or paths that include the bucket name
+      if (imagePath.includes('s3://') || 
+          imagePath.includes('landingpad-dxp') ||
+          storageService.isS3Enabled) {
+        
+        logger.info(`Deleting image from S3: ${imagePath}`);
+        const result = await storageService.deleteFile(imagePath);
+        
+        if (!result.success) {
+          throw new Error(result.error || 'Failed to delete image from S3');
+        }
+        
+        return true;
+      }
+      
+      // Local file system logic
       // Ensure the path is not outside the uploads directory
       if (!imagePath.startsWith('/uploads/')) {
         throw new Error('Invalid image path');
@@ -74,7 +131,7 @@ const imageService = {
       // Delete the file
       await fs.unlink(absolutePath);
       
-      logger.info(`Image deleted: ${imagePath}`);
+      logger.info(`Image deleted from local storage: ${imagePath}`);
       
       return true;
     } catch (error) {
@@ -183,17 +240,38 @@ const imageService = {
    * @returns {Promise<Object>} - Image details
    */
   async getImageDetails(imageId) {
-    // In a real implementation, this would fetch from a database
-    // For demonstration purposes, we'll just return mock data
-    return {
-      id: imageId,
-      fileName: `${imageId}.jpg`,
-      originalName: 'example.jpg',
-      filePath: `/uploads/user123/${imageId}.jpg`,
-      fileSize: 12345,
-      mimeType: 'image/jpeg',
-      createdAt: new Date(),
-    };
+    try {
+      // Try to get image details from storage service first if it's an S3 path
+      if (imageId.includes('s3://') || imageId.includes('landingpad-dxp')) {
+        const result = await storageService.getFileInfo(imageId);
+        if (result.success) {
+          return {
+            id: imageId,
+            fileName: path.basename(imageId),
+            originalName: path.basename(imageId),
+            filePath: imageId,
+            fileSize: result.size || 0,
+            mimeType: result.mimetype || 'image/jpeg',
+            url: result.url,
+            createdAt: result.lastModified || new Date(),
+          };
+        }
+      }
+      
+      // Fallback to mock data
+      return {
+        id: imageId,
+        fileName: `${imageId}.jpg`,
+        originalName: 'example.jpg',
+        filePath: `/uploads/user123/${imageId}.jpg`,
+        fileSize: 12345,
+        mimeType: 'image/jpeg',
+        createdAt: new Date(),
+      };
+    } catch (error) {
+      logger.error('Error getting image details:', error);
+      throw error;
+    }
   },
   
   /**
@@ -214,6 +292,70 @@ const imageService = {
       height: options.height || 600,
       quality: options.quality || 80,
     };
+  },
+  
+  /**
+   * Save an Unsplash image to S3 storage
+   * @param {string} imageUrl - URL of the Unsplash image
+   * @param {string} userId - User ID
+   * @param {Object} metadata - Image metadata (photographer, description, etc.)
+   * @returns {Promise<Object>} - Saved image details
+   */
+  async saveUnsplashImageToS3(imageUrl, userId, metadata = {}) {
+    try {
+      if (!imageUrl) {
+        throw new Error('Image URL is required');
+      }
+      
+      // Download the image from Unsplash
+      logger.info(`Downloading Unsplash image: ${imageUrl}`);
+      const imageResponse = await axios.get(imageUrl, { responseType: 'arraybuffer' });
+      const buffer = Buffer.from(imageResponse.data, 'binary');
+      
+      // Generate a unique filename
+      const fileName = `unsplash-${metadata.id || uuidv4()}${path.extname(imageUrl) || '.jpg'}`;
+      
+      // Upload to S3 
+      const fileData = {
+        buffer,
+        originalname: fileName,
+        mimetype: imageResponse.headers['content-type'] || 'image/jpeg',
+        size: buffer.length,
+        uploadType: 'uploads'
+      };
+      
+      // Determine folder structure
+      const folder = metadata.folder || 'unsplash';
+      
+      // Upload the file to S3
+      logger.info(`Uploading Unsplash image to S3: ${fileName}`);
+      const uploadResult = await storageService.uploadFile(fileData, folder, userId);
+      
+      if (!uploadResult.success) {
+        throw new Error(uploadResult.error || 'Failed to upload image to S3');
+      }
+      
+      // Return the uploaded image details
+      return {
+        id: metadata.id || uuidv4(),
+        fileName,
+        originalUrl: imageUrl,
+        filePath: uploadResult.filePath,
+        url: uploadResult.url,
+        fileSize: buffer.length,
+        mimeType: imageResponse.headers['content-type'] || 'image/jpeg',
+        metadata: {
+          ...metadata,
+          unsplashAttribution: true,
+          photographer: metadata.photographer || 'Unsplash Photographer',
+          photographerUrl: metadata.photographerUrl || 'https://unsplash.com',
+        },
+        createdAt: new Date(),
+      };
+    } catch (error) {
+      logger.error('Error saving Unsplash image to S3:', error);
+      throw error;
+    }
   }
 };
 

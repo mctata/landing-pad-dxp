@@ -6,6 +6,7 @@ import Image from 'next/image';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useForm } from 'react-hook-form';
 import { useAuth } from '@/lib/auth/auth-context';
+import { authAPI } from '@/lib/api';
 import { toast } from 'react-hot-toast';
 
 interface LoginFormData {
@@ -298,6 +299,75 @@ export default function LoginPage() {
           <button type="submit">
             {isLoading ? 'Signing in...' : 'Sign in'}
           </button>
+          
+          <div style={{ textAlign: 'center', margin: '1.5rem 0', color: '#6b7280' }}>
+            <span>Or continue with</span>
+          </div>
+          
+          <div style={{ display: 'flex', gap: '1rem', justifyContent: 'center' }}>
+            <button 
+              type="button" 
+              onClick={() => authAPI.loginWithGoogle()}
+              style={{ 
+                backgroundColor: '#fff', 
+                color: '#333', 
+                border: '1px solid #d1d1d1',
+                width: '33%',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: '0.5rem'
+              }}
+            >
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path d="M21.6 12.227c0-.709-.064-1.39-.182-2.045H12v3.868h5.382a4.6 4.6 0 01-1.996 3.018v2.51h3.232c1.891-1.742 2.982-4.305 2.982-7.35z" fill="#4285F4"/>
+                <path d="M12 22c2.7 0 4.964-.895 6.618-2.423l-3.232-2.509c-.895.6-2.04.955-3.386.955-2.605 0-4.81-1.76-5.595-4.123H3.064v2.59A9.996 9.996 0 0012 22z" fill="#34A853"/>
+                <path d="M6.405 13.9c-.2-.6-.314-1.24-.314-1.9 0-.66.114-1.3.314-1.9V7.51H3.064A9.996 9.996 0 002 12c0 1.614.386 3.14 1.064 4.49l3.34-2.59z" fill="#FBBC05"/>
+                <path d="M12 5.977c1.468 0 2.786.505 3.823 1.496l2.868-2.868C16.959 2.99 14.695 2 12 2 7.9 2 4.4 4.27 2.75 7.51l3.34 2.59C6.876 7.737 9.082 5.977 12 5.977z" fill="#EA4335"/>
+              </svg>
+              Google
+            </button>
+            
+            <button 
+              type="button" 
+              onClick={() => authAPI.loginWithFacebook()}
+              style={{ 
+                backgroundColor: '#1877F2', 
+                color: 'white', 
+                border: 'none',
+                width: '33%',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: '0.5rem'
+              }}
+            >
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path d="M24 12c0-6.627-5.373-12-12-12S0 5.373 0 12c0 5.99 4.388 10.954 10.125 11.854V15.47H7.078V12h3.047V9.356c0-3.007 1.792-4.668 4.533-4.668 1.312 0 2.686.234 2.686.234v2.953H15.83c-1.491 0-1.956.925-1.956 1.875V12h3.328l-.532 3.47h-2.796v8.385C19.612 22.954 24 17.99 24 12z" fill="white"/>
+              </svg>
+              Facebook
+            </button>
+            
+            <button 
+              type="button" 
+              onClick={() => authAPI.loginWithLinkedIn()}
+              style={{ 
+                backgroundColor: '#0077B5', 
+                color: 'white', 
+                border: 'none',
+                width: '33%',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: '0.5rem'
+              }}
+            >
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path d="M20.447 20.452h-3.554v-5.569c0-1.328-.027-3.037-1.852-3.037-1.853 0-2.136 1.445-2.136 2.939v5.667H9.351V9h3.414v1.561h.046c.477-.9 1.637-1.85 3.37-1.85 3.601 0 4.267 2.37 4.267 5.455v6.286zM5.337 7.433a2.062 2.062 0 01-2.063-2.065 2.064 2.064 0 112.063 2.065zm1.782 13.019H3.555V9h3.564v11.452zM22.225 0H1.771C.792 0 0 .774 0 1.729v20.542C0 23.227.792 24 1.771 24h20.451C23.2 24 24 23.227 24 22.271V1.729C24 .774 23.2 0 22.222 0h.003z" fill="white"/>
+              </svg>
+              LinkedIn
+            </button>
+          </div>
           
           <div className="help-box">
             <h2>Demo Credentials:</h2>

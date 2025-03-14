@@ -75,7 +75,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     localStorage.removeItem('token');
     localStorage.removeItem('userEmail');
     localStorage.removeItem('userRole');
+    
+    // Clear all cookies that might be related to auth
     document.cookie = 'refreshToken=; Max-Age=0; path=/; domain=' + window.location.hostname;
+    document.cookie = 'token=; Max-Age=0; path=/; domain=' + window.location.hostname;
+    document.cookie = 'userData=; Max-Age=0; path=/; domain=' + window.location.hostname;
+    
+    // Also try without specific domain for local development
+    document.cookie = 'refreshToken=; Max-Age=0; path=/;';
+    document.cookie = 'token=; Max-Age=0; path=/;';
+    document.cookie = 'userData=; Max-Age=0; path=/;';
   };
 
   // Refresh the access token
@@ -190,18 +199,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       // Show success message
       toast.success('Login successful');
       
-      // Add a small delay to ensure localStorage is updated before redirect
+      // Add a longer delay to ensure localStorage is updated before redirect
       // This helps prevent middleware auth issues
       setTimeout(() => {
         // Redirect based on user role - use direct navigation for more reliable redirection
         if (response.data.user.role === 'admin') {
           // Admin goes to admin dashboard - add fromLogin to prevent middleware redirect loops
-          window.location.href = '/admin/dashboard?fromLogin=true';
+          window.location.href = '/admin/dashboard?fromLogin=true&timestamp=' + Date.now();
         } else {
           // Regular users go to create page - add fromLogin to prevent middleware redirect loops
-          window.location.href = '/dashboard/create?fromLogin=true';
+          window.location.href = '/dashboard/create?fromLogin=true&timestamp=' + Date.now();
         }
-      }, 200);
+      }, 500);
     } catch (error: any) {
       // Handle specific error cases
       const errorMessage = error.response?.data?.message || 'Login failed. Please check your credentials.';
@@ -264,11 +273,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         // Standard success message
         toast.success('Registration successful');
         
-        // Add a small delay to ensure localStorage is updated
+        // Add a longer delay to ensure localStorage is updated
         setTimeout(() => {
           // Redirect to dashboard - use window.location for more reliable redirects
-          window.location.href = '/dashboard?fromRegister=true';
-        }, 200);
+          window.location.href = '/dashboard?fromRegister=true&timestamp=' + Date.now();
+        }, 500);
       }
     } catch (error: any) {
       // Handle specific error cases

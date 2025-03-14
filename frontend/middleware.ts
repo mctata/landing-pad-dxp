@@ -76,6 +76,13 @@ export async function middleware(request: NextRequest) {
       // Skip auth check if explicitly told not to redirect or coming from login
       const noRedirect = url.searchParams.get('noRedirect') === '1';
       const isComingFromLogin = url.searchParams.get('fromLogin') === 'true';
+      const redirectCount = parseInt(url.searchParams.get('redirectCount') || '0');
+      
+      // Break infinite loops by tracking redirect count
+      if (redirectCount > 2) {
+        console.warn('Breaking potential redirect loop for path:', path);
+        return NextResponse.next();
+      }
       
       if (noRedirect || isComingFromLogin) {
         return NextResponse.next();
@@ -91,8 +98,9 @@ export async function middleware(request: NextRequest) {
           // Track unauthorized attempts
           incrementMetric(metrics.statusCounts, 'redirect-auth');
           
-          // Include the current path as redirectTo parameter
-          return NextResponse.redirect(new URL(`/auth/login?redirectTo=${path}`, request.url));
+          // Include the current path and redirectCount in query parameters
+          const redirectCount = parseInt(url.searchParams.get('redirectCount') || '0');
+          return NextResponse.redirect(new URL(`/auth/login?redirectTo=${path}&redirectCount=${redirectCount + 1}`, request.url));
         }
       }
       
@@ -132,6 +140,13 @@ export async function middleware(request: NextRequest) {
       const noRedirect = url.searchParams.get('noRedirect') === '1';
       const isComingFromLogin = url.searchParams.get('fromLogin') === 'true';
       const isComingFromRegister = url.searchParams.get('fromRegister') === 'true';
+      const redirectCount = parseInt(url.searchParams.get('redirectCount') || '0');
+      
+      // Break infinite loops by tracking redirect count
+      if (redirectCount > 2) {
+        console.warn('Breaking potential redirect loop for path:', path);
+        return NextResponse.next();
+      }
       
       if (noRedirect || isComingFromLogin || isComingFromRegister) {
         return NextResponse.next();
@@ -149,8 +164,9 @@ export async function middleware(request: NextRequest) {
           // Track unauthorized attempts
           incrementMetric(metrics.statusCounts, 'redirect-auth');
           
-          // Include the current path as redirectTo parameter
-          return NextResponse.redirect(new URL(`/auth/login?redirectTo=${path}`, request.url));
+          // Include the current path and redirectCount in query parameters
+          const redirectCount = parseInt(url.searchParams.get('redirectCount') || '0');
+          return NextResponse.redirect(new URL(`/auth/login?redirectTo=${path}&redirectCount=${redirectCount + 1}`, request.url));
         }
       }
       

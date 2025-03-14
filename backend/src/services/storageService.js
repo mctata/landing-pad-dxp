@@ -372,11 +372,112 @@ async function healthCheck() {
   }
 }
 
+/**
+ * Get file information from S3 or local storage
+ * @param {string} filePath - The path of the file
+ * @returns {Promise<Object>} - The file information
+ */
+async function getFileInfo(filePath) {
+  try {
+    if (!filePath) {
+      throw new Error('No file path provided');
+    }
+    
+    if (useS3Storage) {
+      // Determine which bucket to use based on the file path
+      const isUploadsBucket = filePath.includes('uploads/') || filePath.includes('uploads_');
+      const targetBucket = isUploadsBucket ? uploadsBucket : storageBucket;
+      
+      // If the filePath already has the bucket name, extract just the key
+      let key = filePath;
+      if (filePath.includes(targetBucket)) {
+        key = filePath.substring(filePath.indexOf(targetBucket) + targetBucket.length + 1);
+      }
+      
+      try {
+        const params = {
+          Bucket: targetBucket,
+          Key: key
+        };
+        
+        // Get object info from S3
+        const headResult = await s3.headObject(params).promise();
+        
+        // Generate a URL for the file
+        const url = s3.getSignedUrl('getObject', {
+          Bucket: targetBucket,
+          Key: key,
+          Expires: 3600 // 1 hour
+        });
+        
+        return {
+          success: true,
+          filePath,
+          size: headResult.ContentLength,
+          mimetype: headResult.ContentType,
+          lastModified: headResult.LastModified,
+          url,
+          metadata: headResult.Metadata
+        };
+      } catch (error) {
+        logger.error(`Error getting file info from S3: ${error.message}`);
+        return {
+          success: false,
+          error: error.message
+        };
+      }
+    } else {
+      // For local storage
+      const fullPath = path.join(process.cwd(), filePath);
+      
+      try {
+        // Check if file exists
+        const stats = await fs.stat(fullPath);
+        
+        // Determine mime type (basic implementation)
+        const ext = path.extname(fullPath).toLowerCase();
+        let mimetype = 'application/octet-stream';
+        
+        if (ext === '.jpg' || ext === '.jpeg') mimetype = 'image/jpeg';
+        else if (ext === '.png') mimetype = 'image/png';
+        else if (ext === '.gif') mimetype = 'image/gif';
+        else if (ext === '.webp') mimetype = 'image/webp';
+        else if (ext === '.pdf') mimetype = 'application/pdf';
+        
+        // Create URL
+        const url = `${process.env.NEXT_PUBLIC_UPLOADS_URL || ''}${filePath.replace(/\\/g, '/')}`;
+        
+        return {
+          success: true,
+          filePath,
+          size: stats.size,
+          mimetype,
+          lastModified: stats.mtime,
+          url
+        };
+      } catch (error) {
+        logger.error(`Error getting file info from local storage: ${error.message}`);
+        return {
+          success: false,
+          error: error.message
+        };
+      }
+    }
+  } catch (error) {
+    logger.error(`Error in getFileInfo: ${error.message}`);
+    return {
+      success: false,
+      error: error.message
+    };
+  }
+}
+
 module.exports = {
   upload,
   uploadFile,
   deleteFile,
   getSignedUrl,
+  getFileInfo,
   healthCheck,
   // Export these for other modules to use
   isS3Enabled: useS3Storage,

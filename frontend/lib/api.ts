@@ -156,7 +156,20 @@ api.interceptors.response.use(
           
           // Only redirect if not already on login page to prevent loops
           if (!window.location.pathname.includes('/auth/login')) {
-            window.location.href = `/auth/login?redirectTo=${window.location.pathname}`;
+            const currentRedirectCount = new URLSearchParams(window.location.search).get('redirectCount');
+            const redirectCount = currentRedirectCount ? parseInt(currentRedirectCount) + 1 : 1;
+            
+            // Prevent infinite loops by limiting redirect count
+            if (redirectCount <= 3) {
+              window.location.href = `/auth/login?redirectTo=${window.location.pathname}&redirectCount=${redirectCount}`;
+            } else {
+              console.warn('Breaking potential redirect loop');
+              localStorage.removeItem('userData');
+              localStorage.removeItem('token');
+              localStorage.removeItem('userEmail');
+              localStorage.removeItem('userRole');
+              window.location.href = '/auth/login?forceLogin=true';
+            }
           }
         }
       }

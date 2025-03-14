@@ -1,6 +1,7 @@
 const imageService = require('../services/imageService');
 const logger = require('../utils/logger');
 const { APIError } = require('../middleware/errorHandler');
+const storageService = require('../services/storageService');
 
 /**
  * Controller for handling image-related requests
@@ -179,6 +180,60 @@ const imageController = {
         image: optimizedImage,
       });
     } catch (error) {
+      next(error);
+    }
+  },
+  
+  /**
+   * Save an Unsplash image to S3
+   * @route POST /api/images/stock/save
+   */
+  async saveUnsplashImage(req, res, next) {
+    try {
+      const { imageUrl, metadata } = req.body;
+      
+      if (!imageUrl) {
+        throw new APIError('Image URL is required', 400);
+      }
+      
+      const userId = req.user.id;
+      
+      // Verify S3 is enabled
+      if (!storageService.isS3Enabled) {
+        throw new APIError('S3 storage is not enabled', 500);
+      }
+      
+      // Save the image to S3
+      const savedImage = await imageService.saveUnsplashImageToS3(imageUrl, userId, metadata);
+      
+      res.status(201).json({
+        success: true,
+        message: 'Unsplash image saved to S3 successfully',
+        image: savedImage
+      });
+    } catch (error) {
+      logger.error('Error saving Unsplash image to S3:', error);
+      next(error);
+    }
+  },
+  
+  /**
+   * Check S3 storage connection
+   * @route GET /api/images/storage-check
+   */
+  async checkStorage(req, res, next) {
+    try {
+      const result = await storageService.healthCheck();
+      
+      res.status(200).json({
+        success: result.success,
+        message: result.message,
+        storage: result.storage,
+        s3Enabled: storageService.isS3Enabled,
+        ...(!result.success && { error: result.error })
+      });
+    } catch (error) {
+      logger.error('Error checking storage:', error);
       next(error);
     }
   }
